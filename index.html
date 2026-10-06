@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="en" data-theme="default">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e1116">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="No Kapu">
+<title>No Kapu Tuner</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<style>
+  :root {
+    --bg: #0e1116;
+    --surface: #171b22;
+    --line: #2a313c;
+    --text: #e8ecf2;
+    --muted: #7d8795;
+    --good: #5fd0b0;
+    --off: #e6b450;
+    color-scheme: dark;
+  }
+  /* "Tuna" — ahi, island style: shoyu-dark ground, ruby flesh, scallion green. */
+  [data-theme="tuna"] {
+    --bg: #1b0d10;
+    --surface: #2a1317;
+    --line: #442128;
+    --text: #f6e9df;
+    --muted: #b58f8a;
+    --good: #a7d45a;
+    --off: #e0525e;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  [hidden] { display: none !important; }
+  html, body {
+    height: 100%;
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  body { overflow: hidden; touch-action: manipulation; -webkit-user-select: none; user-select: none; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  button:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+
+  .screen {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    display: flex; flex-direction: column;
+    padding: max(16px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right))
+             max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+  }
+
+  /* ---- opening screen ---- */
+  #start { align-items: center; justify-content: center; gap: 44px; }
+  .wordmark {
+    margin: 0; font-size: 12px; font-weight: 500;
+    letter-spacing: .34em; text-transform: uppercase; color: var(--muted);
+  }
+  .go {
+    width: 128px; height: 128px; border-radius: 50%;
+    border: 1.5px solid var(--line); background: transparent;
+    font-size: 17px; letter-spacing: .04em;
+    transition: background .15s, border-color .15s;
+  }
+  .go:active { background: var(--surface); border-color: var(--muted); }
+  .msg { min-height: 3.6em; max-width: 30ch; margin: 0; text-align: center; color: var(--muted); font-size: 14px; line-height: 1.45; }
+
+  /* ---- tuner screen ---- */
+  .bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .seg { display: flex; gap: 2px; padding: 3px; background: var(--surface); border-radius: 12px; }
+  .seg button {
+    min-height: 36px; padding: 6px 12px; border: 0; border-radius: 9px;
+    background: transparent; color: var(--muted); font-size: 14px;
+  }
+  .seg button[aria-pressed="true"] { background: var(--line); color: var(--text); }
+  .icon-btn {
+    width: 40px; height: 40px; border: 0; border-radius: 50%;
+    background: transparent; color: var(--muted); font-size: 24px; line-height: 1;
+  }
+
+  .readout { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .note {
+    font-weight: 300; font-size: clamp(96px, 30vw, 190px); line-height: 1;
+    letter-spacing: -.02em; white-space: nowrap; transition: color .15s;
+  }
+  .note .acc { font-size: .4em; vertical-align: top; position: relative; top: .1em; }
+  .note .oct { font-size: .2em; color: var(--muted); margin-left: .12em; letter-spacing: 0; }
+  .note.idle { color: var(--line); }
+  .note.good { color: var(--good); }
+  .sub {
+    display: flex; gap: 18px; min-height: 1.5em; margin-top: 10px;
+    color: var(--muted); font-size: 15px; font-variant-numeric: tabular-nums;
+  }
+
+  .meter { width: 100%; max-width: 420px; margin: 0 auto; padding: 0 4px; }
+  .scale { position: relative; height: 64px; }
+  .tick { position: absolute; bottom: 0; width: 2px; height: 16px; margin-left: -1px; border-radius: 1px; background: var(--line); }
+  .tick.major { height: 26px; background: var(--muted); opacity: .6; }
+  .tick.mid { height: 40px; background: var(--muted); opacity: 1; }
+  .needle {
+    position: absolute; bottom: 0; left: 50%; width: 4px; height: 62px; margin-left: -2px;
+    border-radius: 2px; background: var(--off);
+    transition: left .12s linear, background .2s, opacity .2s;
+  }
+  .needle.good { background: var(--good); }
+  .needle.idle { background: var(--muted); opacity: .25; }
+  .ends { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; color: var(--muted); font-size: 15px; }
+  #hint { font-size: 14px; letter-spacing: .02em; }
+
+  .strings { display: flex; justify-content: center; gap: 10px; margin-top: 22px; min-height: 60px; }
+  .str {
+    position: relative; flex: 1; min-width: 44px; max-width: 68px; height: 60px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    border: 1.5px solid var(--line); border-radius: 14px; background: transparent; color: var(--muted);
+    transition: border-color .15s, color .15s;
+  }
+  .str .l { font-size: 20px; color: var(--text); }
+  .str .o { font-size: 11px; }
+  .str.active { border-color: var(--text); }
+  .str.good { border-color: var(--good); }
+  .str.good .l { color: var(--good); }
+  .str[aria-pressed="true"]::after {
+    content: ""; position: absolute; bottom: 5px; width: 4px; height: 4px; border-radius: 50%; background: var(--text);
+  }
+
+  /* ---- settings sheet ---- */
+  .sheet { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 10; display: flex; align-items: flex-end; }
+  .sheet-backdrop { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, .55); }
+  .sheet-body {
+    position: relative; width: 100%; display: flex; flex-direction: column; gap: 20px;
+    padding: 22px 20px max(20px, env(safe-area-inset-bottom));
+    background: var(--surface); border-radius: 20px 20px 0 0;
+  }
+  .sheet .seg { background: var(--bg); }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 16px; }
+  .stepper { display: flex; align-items: center; gap: 12px; font-variant-numeric: tabular-nums; }
+  .stepper button {
+    width: 40px; height: 40px; border: 1.5px solid var(--line); border-radius: 50%;
+    background: transparent; font-size: 20px; line-height: 1;
+  }
+  .done { min-height: 46px; border: 0; border-radius: 12px; background: var(--line); font-size: 16px; }
+
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<main id="start" class="screen">
+  <p class="wordmark">No Kapu <span class="word">Tuner</span></p>
+  <button id="go" class="go" type="button">Tune</button>
+  <p id="startMsg" class="msg" role="status"></p>
+</main>
+
+<main id="tuner" class="screen" hidden>
+  <header class="bar">
+    <div class="seg" id="modes" role="group" aria-label="Instrument">
+      <button type="button" data-mode="guitar">Guitar</button>
+      <button type="button" data-mode="ukulele">Ukulele</button>
+      <button type="button" data-mode="chromatic">Chromatic</button>
+    </div>
+    <button id="openSettings" class="icon-btn" type="button" aria-label="Settings">⋯</button>
+  </header>
+
+  <section class="readout">
+    <div id="note" class="note idle" aria-hidden="true">—</div>
+    <div class="sub"><span id="centsTxt"></span><span id="hzTxt"></span></div>
+  </section>
+
+  <section class="meter" aria-hidden="true">
+    <div class="scale" id="scale"><div class="needle idle" id="needle"></div></div>
+    <div class="ends"><span>♭</span><span id="hint">Play a string</span><span>♯</span></div>
+  </section>
+
+  <nav id="strings" class="strings" aria-label="Strings"></nav>
+  <div id="status" class="sr" role="status" aria-live="polite"></div>
+</main>
+
+<div id="sheet" class="sheet" hidden>
+  <div id="sheetBackdrop" class="sheet-backdrop"></div>
+  <div class="sheet-body" role="dialog" aria-modal="true" aria-label="Settings">
+    <div class="row">
+      <span>Theme</span>
+      <div class="seg" id="themes" role="group" aria-label="Theme">
+        <button type="button" data-theme-choice="default">Default</button>
+        <button type="button" data-theme-choice="tuna">Tuna</button>
+      </div>
+    </div>
+    <div class="row">
+      <span>Reference pitch</span>
+      <div class="stepper">
+        <button id="a4Down" type="button" aria-label="Lower reference pitch">−</button>
+        <span id="a4Val">A = 440 Hz</span>
+        <button id="a4Up" type="button" aria-label="Raise reference pitch">+</button>
+      </div>
+    </div>
+    <button id="closeSheet" class="done" type="button">Done</button>
+  </div>
+</div>
+
+<script src="tuner-core.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var C = window.TunerCore;
+  var $ = function (id) { return document.getElementById(id); };
+
+  var A4_MIN = 415, A4_MAX = 466;
+  var FRAME_MS = 40;          // pitch detection runs ~25x per second
+  var IDLE_AFTER_MS = 600;    // no pitch for this long -> back to idle
+  var IN_TUNE_CENTS = 5;
+  var IN_TUNE_FRAMES = 5;
+
+  function store(key, value) {
+    try {
+      if (value === undefined) return localStorage.getItem('nokapu.' + key);
+      localStorage.setItem('nokapu.' + key, String(value));
+    } catch (e) { /* storage unavailable: settings just won't persist */ }
+    return null;
+  }
+
+  var state = { mode: 'guitar', theme: 'default', a4: 440, locked: null };
+  var savedMode = store('mode');
+  if (savedMode && C.INSTRUMENTS[savedMode]) state.mode = savedMode;
+  if (store('theme') === 'tuna') state.theme = 'tuna';
+  var savedA4 = parseInt(store('a4'), 10);
+  if (savedA4 >= A4_MIN && savedA4 <= A4_MAX) state.a4 = savedA4;
+
+  /* ---------- theme ---------- */
+  function applyTheme(name) {
+    state.theme = name;
+    document.documentElement.setAttribute('data-theme', name);
+    var word = name === 'tuna' ? 'Tuna' : 'Tuner';
+    Array.prototype.forEach.call(document.querySelectorAll('.word'), function (el) { el.textContent = word; });
+    document.title = 'No Kapu ' + word;
+    var bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta && bg) meta.setAttribute('content', bg);
+    Array.prototype.forEach.call(document.querySelectorAll('#themes button'), function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-theme-choice') === name));
+    });
+    store('theme', name);
+  }
+
+  /* ---------- scale ticks ---------- */
+  (function buildScale() {
+    var scale = $('scale');
+    for (var c = -50; c <= 50; c += 10) {
+      var t = document.createElement('div');
+      t.className = 'tick' + (c === 0 ? ' mid' : (c % 50 === 0 ? ' major' : ''));
+      t.style.left = (50 + c) + '%';
+      scale.insertBefore(t, $('needle'));
+    }
+  })();
+
+  /* ---------- instrument / strings ---------- */
+  var stringsEl = $('strings');
+  var stringBtns = [];
+
+  function renderStrings() {
+    stringsEl.textContent = '';
+    stringBtns = [];
+    var inst = C.INSTRUMENTS[state.mode];
+    stringsEl.hidden = !inst.strings;
+    if (!inst.strings) return;
+    inst.strings.forEach(function (midi, i) {
+      var p = C.midiToParts(midi);
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'str';
+      b.setAttribute('aria-pressed', 'false');
+      b.setAttribute('aria-label', 'Lock to string ' + p.name + p.octave);
+      var l = document.createElement('span'); l.className = 'l'; l.textContent = p.name;
+      var o = document.createElement('span'); o.className = 'o'; o.textContent = p.octave;
+      b.appendChild(l); b.appendChild(o);
+      b.addEventListener('click', function () {
+        state.locked = state.locked === i ? null : i;
+        resetReadings();
+        paintStrings(null, false);
+      });
+      stringsEl.appendChild(b);
+      stringBtns.push(b);
+    });
+    paintStrings(null, false);
+  }
+
+  function paintStrings(activeIdx, good) {
+    stringBtns.forEach(function (b, i) {
+      b.setAttribute('aria-pressed', String(state.locked === i));
+      var active = activeIdx === i;
+      b.classList.toggle('active', active);
+      b.classList.toggle('good', active && good);
+    });
+  }
+
+  function setMode(mode) {
+    state.mode = mode;
+    state.locked = null;
+    store('mode', mode);
+    Array.prototype.forEach.call(document.querySelectorAll('#modes button'), function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-mode') === mode));
+    });
+    resetReadings();
+    renderStrings();
+    showIdle();
+  }
+
+  /* ---------- readings: smoothing + outlier rejection ---------- */
+  var hist = [];        // recent pitches as MIDI floats
+  var pending = [];     // readings far from the current pitch, waiting to be confirmed
+  var inTuneCount = 0;
+  var lastHeard = 0;
+  var wasGood = false;
+  var showing = false;  // true while the screen is displaying a reading
+
+  function resetReadings() { hist = []; pending = []; inTuneCount = 0; wasGood = false; }
+
+  function accept(midiF) {
+    if (!hist.length) { hist.push(midiF); return true; }
+    if (Math.abs(midiF - C.median(hist)) <= 0.7) {
+      hist.push(midiF);
+      if (hist.length > 5) hist.shift();
+      pending = [];
+      return true;
+    }
+    // A big jump: only follow it if three readings in a row agree (new string, not a glitch).
+    pending.push(midiF);
+    if (pending.length > 3) pending.shift();
+    if (pending.length === 3 && Math.max.apply(null, pending) - Math.min.apply(null, pending) < 0.5) {
+      hist = pending.slice();
+      pending = [];
+      inTuneCount = 0;
+      return true;
+    }
+    return false;
+  }
+
+  /* ---------- rendering ---------- */
+  var noteEl = $('note'), needleEl = $('needle'), hintEl = $('hint');
+  var centsEl = $('centsTxt'), hzEl = $('hzTxt'), statusEl = $('status');
+
+  function showIdle() {
+    noteEl.textContent = '—';
+    noteEl.className = 'note idle';
+    needleEl.style.left = '50%';
+    needleEl.className = 'needle idle';
+    centsEl.textContent = '';
+    hzEl.textContent = '';
+    hintEl.textContent = 'Play a string';
+    paintStrings(null, false);
+    if (wasGood) statusEl.textContent = '';
+    wasGood = false;
+    showing = false;
+  }
+
+  function render(freq) {
+    var a4 = state.a4;
+    var inst = C.INSTRUMENTS[state.mode];
+    var midi, cents, strIdx = null;
+
+    if (inst.strings) {
+      strIdx = state.locked !== null ? state.locked : C.nearestString(freq, inst.strings, a4).index;
+      midi = inst.strings[strIdx];
+      cents = C.centsBetween(freq, C.midiToFreq(midi, a4));
+    } else {
+      var n = C.freqToNote(freq, a4);
+      midi = n.midi;
+      cents = n.cents;
+    }
+
+    inTuneCount = Math.abs(cents) <= IN_TUNE_CENTS ? inTuneCount + 1 : 0;
+    var good = inTuneCount >= IN_TUNE_FRAMES;
+
+    var p = C.midiToParts(midi);
+    noteEl.textContent = '';
+    noteEl.appendChild(document.createTextNode(p.name.charAt(0)));
+    if (p.name.length > 1) {
+      var acc = document.createElement('span'); acc.className = 'acc'; acc.textContent = p.name.charAt(1);
+      noteEl.appendChild(acc);
+    }
+    var oct = document.createElement('span'); oct.className = 'oct'; oct.textContent = p.octave;
+    noteEl.appendChild(oct);
+    noteEl.className = 'note' + (good ? ' good' : '');
+
+    var rounded = Math.round(cents);
+    centsEl.textContent = (rounded > 0 ? '+' : rounded < 0 ? '−' : '') + Math.abs(rounded) + '¢';
+    hzEl.textContent = freq.toFixed(1) + ' Hz';
+
+    var clamped = Math.max(-50, Math.min(50, cents));
+    needleEl.style.left = (50 + clamped) + '%';
+    needleEl.className = 'needle' + (good ? ' good' : '');
+    hintEl.textContent = good ? 'In tune' : (cents < 0 ? 'Tune up' : 'Tune down');
+
+    paintStrings(strIdx, good);
+    if (good && !wasGood) statusEl.textContent = 'In tune';
+    if (!good && wasGood) statusEl.textContent = '';
+    wasGood = good;
+    showing = true;
+  }
+
+  /* ---------- audio ---------- */
+  var ctx = null, stream = null, analyser = null, buf = null, bytes = null;
+  var running = false, raf = 0, lastRun = 0;
+
+  function readSamples() {
+    if (analyser.getFloatTimeDomainData) {
+      analyser.getFloatTimeDomainData(buf);
+    } else {
+      analyser.getByteTimeDomainData(bytes);
+      for (var i = 0; i < bytes.length; i++) buf[i] = (bytes[i] - 128) / 128;
+    }
+  }
+
+  function onFrame() {
+    readSamples();
+    var now = performance.now();
+    var r = C.detectPitch(buf, ctx.sampleRate);
+    if (r) {
+      var midiF = 69 + 12 * Math.log(r.freq / state.a4) / Math.LN2;
+      if (accept(midiF)) {
+        lastHeard = now;
+        var freq = state.a4 * Math.pow(2, (C.median(hist) - 69) / 12);
+        render(freq);
+      }
+    }
+    if (showing && now - lastHeard > IDLE_AFTER_MS) {
+      resetReadings();
+      showIdle();
+    }
+  }
+
+  function loop(t) {
+    if (!running) return;
+    raf = requestAnimationFrame(loop);
+    if (t - lastRun < FRAME_MS) return;
+    lastRun = t;
+    onFrame();
+  }
+
+  function startLoop() {
+    if (running) return;
+    running = true;
+    raf = requestAnimationFrame(loop);
+  }
+  function stopLoop() {
+    running = false;
+    cancelAnimationFrame(raf);
+  }
+
+  function startAudio() {
+    if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      return Promise.reject({ name: 'Insecure' });
+    }
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return Promise.reject({ name: 'Insecure' });
+    ctx = new AC(); // created inside the tap so iOS allows audio
+    return navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+    }).then(function (s) {
+      stream = s;
+      return ctx.resume();
+    }).then(function () {
+      var src = ctx.createMediaStreamSource(stream);
+      analyser = ctx.createAnalyser();
+      analyser.fftSize = 4096;
+      analyser.smoothingTimeConstant = 0;
+      src.connect(analyser); // not connected to the speakers, so no feedback
+      buf = new Float32Array(analyser.fftSize);
+      bytes = new Uint8Array(analyser.fftSize);
+      var track = stream.getAudioTracks()[0];
+      if (track) track.addEventListener('ended', function () { stopAudio('The microphone stopped. Tap to start again.'); });
+    });
+  }
+
+  function stopAudio(message) {
+    stopLoop();
+    releaseWake();
+    if (stream) stream.getTracks().forEach(function (t) { t.stop(); });
+    if (ctx && ctx.close) ctx.close().catch(function () {});
+    stream = null; ctx = null; analyser = null;
+    resetReadings();
+    $('tuner').hidden = true;
+    $('start').hidden = false;
+    $('startMsg').textContent = message || '';
+  }
+
+  function friendlyError(err) {
+    var name = err && err.name;
+    if (name === 'Insecure') return 'This app needs a secure (https) connection to use the microphone.';
+    if (name === 'NotAllowedError' || name === 'SecurityError') return 'Microphone access is blocked. Allow it for this site in your browser settings, then tap again.';
+    if (name === 'NotFoundError' || name === 'OverconstrainedError') return 'No microphone found.';
+    return 'Could not start the microphone. Tap to try again.';
+  }
+
+  /* ---------- keep the screen on while tuning ---------- */
+  var wake = null;
+  function requestWake() {
+    try {
+      if (!('wakeLock' in navigator)) return;
+      navigator.wakeLock.request('screen').then(function (lock) {
+        wake = lock;
+        lock.addEventListener('release', function () { if (wake === lock) wake = null; });
+      }).catch(function () {});
+    } catch (e) { /* not supported */ }
+  }
+  function releaseWake() {
+    if (wake) { wake.release().catch(function () {}); wake = null; }
+  }
+
+  /* ---------- wiring ---------- */
+  $('go').addEventListener('click', function () {
+    $('startMsg').textContent = '';
+    startAudio().then(function () {
+      $('start').hidden = true;
+      $('tuner').hidden = false;
+      lastHeard = performance.now();
+      showIdle();
+      requestWake();
+      startLoop();
+    }).catch(function (err) {
+      if (ctx && ctx.close) ctx.close().catch(function () {});
+      ctx = null;
+      $('startMsg').textContent = friendlyError(err);
+    });
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll('#modes button'), function (b) {
+    b.addEventListener('click', function () { setMode(b.getAttribute('data-mode')); });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('#themes button'), function (b) {
+    b.addEventListener('click', function () { applyTheme(b.getAttribute('data-theme-choice')); });
+  });
+
+  function paintA4() { $('a4Val').textContent = 'A = ' + state.a4 + ' Hz'; }
+  function changeA4(delta) {
+    var next = Math.max(A4_MIN, Math.min(A4_MAX, state.a4 + delta));
+    if (next === state.a4) return;
+    state.a4 = next;
+    store('a4', next);
+    resetReadings();
+    paintA4();
+  }
+  $('a4Down').addEventListener('click', function () { changeA4(-1); });
+  $('a4Up').addEventListener('click', function () { changeA4(1); });
+
+  function openSheet() { $('sheet').hidden = false; $('closeSheet').focus(); }
+  function closeSheet() { $('sheet').hidden = true; $('openSettings').focus(); }
+  $('openSettings').addEventListener('click', openSheet);
+  $('closeSheet').addEventListener('click', closeSheet);
+  $('sheetBackdrop').addEventListener('click', closeSheet);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !$('sheet').hidden) closeSheet();
+  });
+
+  document.addEventListener('visibilitychange', function () {
+    if (!ctx) return;
+    if (document.hidden) {
+      stopLoop();
+      releaseWake();
+      ctx.suspend().catch(function () {});
+    } else {
+      ctx.resume().catch(function () {}).then(function () {
+        lastHeard = performance.now();
+        startLoop();
+        requestWake();
+      });
+    }
+  });
+  document.addEventListener('pointerdown', function () {
+    if (ctx && ctx.state === 'suspended' && !document.hidden) ctx.resume().catch(function () {});
+  });
+
+  applyTheme(state.theme);
+  setMode(state.mode);
+  paintA4();
+
+  if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js').catch(function () {});
+    });
+  }
+})();
+</script>
+</body>
+</html>
