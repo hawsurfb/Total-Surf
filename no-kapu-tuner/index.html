@@ -29,14 +29,14 @@
     --bg: #1b1b1b; --bg2: #1b1b1b; --panel: #2e2e2e; --line: #3b3b3b;
     --text: #e6e6e6; --dim: #a8a8a8; --idle: #6b6b6b;
     --off: #e8625c; --on: #69cd7f; --accent: #ffb020;
-    --leaf-opacity: .1; --leafvein: #1b1b1b;
+    --leaf-opacity: .07; --leafvein: #1b1b1b;
   }
   /* Tuna: ahi palette. Deep ocean, coral flesh, limu seafoam, yellowfin gold. */
   [data-theme="tuna"] {
     --bg: #0a2230; --bg2: #0d2b3d; --panel: #123246; --line: #21495f;
     --text: #eef3f2; --dim: #93b2bf; --idle: #5d8294;
     --off: #ff6b61; --on: #6fe0bd; --accent: #f2c14e;
-    --leaf-opacity: .1; --leafvein: #0a2230;
+    --leaf-opacity: .09; --leafvein: #0a2230;
   }
 
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -64,9 +64,8 @@
   #start { align-items: center; justify-content: center; cursor: pointer; }
   .art { position: absolute; inset: 0; pointer-events: none; background-size: cover; background-position: center; }
   .leaf { position: absolute; color: var(--text); opacity: var(--leaf-opacity); }
-  .leaf-a { width: 360px; height: 360px; right: -110px; top: -70px; transform: rotate(25deg); }
-  .leaf-b { width: 420px; height: 420px; left: -160px; bottom: -110px; transform: rotate(-155deg); }
-  .leaf-c { width: 230px; height: 230px; left: -70px; top: 22%; transform: rotate(60deg); opacity: calc(var(--leaf-opacity) * .7); }
+  .leaf-a { width: 300px; height: 300px; right: -90px; top: -60px; transform: rotate(25deg); }
+  .leaf-b { width: 340px; height: 340px; left: -130px; bottom: -90px; transform: rotate(-155deg); }
   .brand-default, .brand-tuna { position: relative; display: flex; flex-direction: column; align-items: center; }
   .brand-default { width: min(80vw, 440px); }
   .brand-default img { width: 100%; height: auto; display: block; }
@@ -226,7 +225,6 @@
     <div class="art" aria-hidden="true">
       <svg class="leaf leaf-a" viewBox="0 0 200 200"><use href="#monstera" width="200" height="200"/></svg>
       <svg class="leaf leaf-b" viewBox="0 0 200 200"><use href="#monstera" width="200" height="200"/></svg>
-      <svg class="leaf leaf-c" viewBox="0 0 200 200"><use href="#monstera" width="200" height="200"/></svg>
     </div>
     <div class="brand-default" aria-hidden="true">
       <img src="img/nokapu-tuner-wordmark.svg" alt="" draggable="false">
@@ -409,6 +407,8 @@
     if (window.__nkLinks) window.__nkLinks(name === 'tuna');
     document.documentElement.setAttribute('data-theme', name);
     document.title = name === 'tuna' ? 'No Kapu Tuna' : 'No Kapu Tuner';
+    var an = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+    if (an) an.setAttribute('content', name === 'tuna' ? 'No Kapu Tuna' : 'No Kapu');
     readPalette();
     var bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
     var meta = document.querySelector('meta[name="theme-color"]');
@@ -547,6 +547,7 @@
   }
   var uiRaf = 0;
   function uiLoop() {
+    if (state.mode !== 'chromatic') { uiRaf = 0; return; }   // nothing to animate: no per-frame work
     uiRaf = requestAnimationFrame(uiLoop);
     stepRuler();
     rulerPhase(performance.now());
@@ -624,6 +625,7 @@
   }, { passive: true });
   ['pointerdown', 'touchstart'].forEach(function (t) { modesEl.addEventListener(t, showNeighbors, { passive: true }); });
   modeBtns.forEach(function (b) {
+    b.setAttribute('tabindex', '-1');
     b.addEventListener('click', function () {
       var m = b.getAttribute('data-mode');
       if (m !== state.mode) { setMode(m, true); showNeighbors(); }
@@ -645,6 +647,7 @@
     resetReadings();
     renderStrings();
     if (mode === 'chromatic') {
+      if (!uiRaf && running) uiLoop();
       rulerEl.hidden = false;
       setRulerMidi(lastRulerMidi, true);
     }
@@ -682,6 +685,19 @@
   var noteEl = $('note'), needleEl = $('needle'), centsEl = $('centsTxt'), hzEl = $('hzTxt');
   var flatEl = $('flatInd'), sharpEl = $('sharpInd'), statusEl = $('status');
 
+  var sayAt = 0, sayKey = '';
+  function announce(midi, cents, good) {
+    var now = performance.now();
+    var p = C.midiToParts(midi, state.flats);
+    var r = Math.round(cents);
+    var key = p.name + p.octave + (good ? '!' : '');
+    if (key === sayKey && now - sayAt < 3000) return;
+    if (key !== sayKey && now - sayAt < 1200) return;      // keep VoiceOver from stuttering
+    sayKey = key; sayAt = now;
+    var spoken = p.name.replace('♯', ' sharp').replace('♭', ' flat') + ' ' + p.octave;
+    statusEl.textContent = good ? spoken + ', in tune'
+      : spoken + ', ' + Math.abs(r) + ' cents ' + (r < 0 ? 'flat' : r > 0 ? 'sharp' : 'on pitch');
+  }
   function setState(s) { appEl.setAttribute('data-state', s); }
 
   function ghostMidi() {
@@ -705,7 +721,7 @@
     flatEl.classList.remove('lit'); sharpEl.classList.remove('lit');
     flatEl.style.color = ''; sharpEl.style.color = '';
     paintStrings(null);
-    if (wasGood) statusEl.textContent = '';
+    statusEl.textContent = ''; sayKey = '';
     wasGood = false;
     showing = false;
   }
@@ -751,11 +767,10 @@
     paintStrings(strIdx);
     if (state.mode === 'chromatic') setRulerMidi(midi, false);
 
+    announce(midi, cents, good);
     if (good && !wasGood) {
-      statusEl.textContent = 'In tune';
       if (chimeArmed) { playChime(); chimeArmed = false; }
     }
-    if (!good && wasGood) statusEl.textContent = '';
     if (Math.abs(cents) > 12) chimeArmed = true;
     wasGood = good;
     showing = true;
@@ -796,7 +811,7 @@
     var now = performance.now();
     if (now < muteUntil) { lastHeard = Math.max(lastHeard, now - 100); return; }
     readSamples();
-    var r = C.detectPitch(buf, ctx.sampleRate);
+    var r = C.detectPitch(buf, ctx.sampleRate, { maxFreq: 4400 });   // B1 .. C8
     if (r) {
       var midiF = 69 + 12 * Math.log(r.freq / state.a4) / Math.LN2;
       var list = currentStrings();
@@ -845,7 +860,7 @@
 
   function stopAudio(message) {
     stopLoop();
-    cancelAnimationFrame(uiRaf);
+    cancelAnimationFrame(uiRaf); uiRaf = 0;
     releaseWake();
     if (stream) stream.getTracks().forEach(function (t) { t.stop(); });
     if (ctx && ctx.close) ctx.close().catch(function () {});
@@ -896,7 +911,7 @@
       scrollModes(state.mode, false);
       requestWake();
       startLoop();
-      cancelAnimationFrame(uiRaf); uiLoop();
+      cancelAnimationFrame(uiRaf); uiRaf = 0; uiLoop();
     }).catch(function (err) {
       if (ctx && ctx.close) ctx.close().catch(function () {});
       ctx = null;

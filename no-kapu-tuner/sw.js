@@ -1,5 +1,5 @@
 /* No Kapu Tuner — service worker. Caches the app shell so it works fully offline. */
-var CACHE = 'nokapu-v4';
+var CACHE = 'nokapu-v5';
 var SHELL = [
   './',
   'index.html',
