@@ -802,7 +802,7 @@
         o.connect(g); g.connect(ctx.destination);
         o.start(s); o.stop(s + 0.95);
       });
-      muteUntil = performance.now() + 1500;   // do not let the tuner hear its own chime
+      muteUntil = performance.now() + 900;   // do not let the tuner hear its own chime (it fades out by then)
     } catch (e) { /* audio output unavailable */ }
   }
 
