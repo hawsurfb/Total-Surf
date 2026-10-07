@@ -341,7 +341,7 @@
 
   var A4_MIN = 415, A4_MAX = 466;
   var FRAME_MS = 40;            // pitch detection ~25x per second
-  var IDLE_AFTER_MS = 600;      // no pitch for this long -> idle
+  var IDLE_AFTER_MS = 2500;     // keep the last reading this long after the sound stops
   var SOLO_AFTER_MS = 1000;     // chromatic ruler: other notes fade after this much silence
   var GONE_AFTER_MS = 7000;     // ...and the last note fades after this
   var USER_HOLD_MS = 2500;      // pause ruler auto-follow after the user touches it
@@ -359,7 +359,7 @@
     return null;
   }
 
-  var state = { mode: 'guitar', theme: 'default', a4: 440, locked: null, flats: false, tuning: 'standard', chime: true };
+  var state = { mode: 'chromatic', theme: 'default', a4: 440, locked: null, flats: false, tuning: 'standard', chime: true };
   var v;
   if ((v = store('mode')) && Object.prototype.hasOwnProperty.call(C.INSTRUMENTS, v)) state.mode = v;
   if (store('theme') === 'tuna') state.theme = 'tuna';
