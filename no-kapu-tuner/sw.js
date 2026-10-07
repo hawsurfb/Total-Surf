@@ -1,37 +1,58 @@
-/* No Kapu Tuner service worker.
-   Precaches every file of the app so it opens with no connection after the first visit.
-   When you change ANY file, bump VERSION so installed copies pick up the update. */
-const VERSION = 'v5';
-const CACHE = 'no-kapu-tuner-' + VERSION;
-const FILES = [
-  './', 'index.html', 'manifest.webmanifest',
-  'icon-192.png', 'icon-512.png', 'maskable-512.png',
-  'apple-touch-icon.png', 'favicon-32.png',
+/* No Kapu Tuner — service worker. Caches the app shell so it works fully offline. */
+var CACHE = 'nokapu-v4';
+var SHELL = [
+  './',
+  'index.html',
+  'tuner-core.js',
+  'manifest.webmanifest',
+  'img/nokapu-tuner-wordmark.svg',
+  'img/tuna-fish.webp',
+  'img/tuna-opening-bg.webp',
+  'img/tuna-tuner-bg.webp',
+  'img/wordmark-tuna.svg',
+  'manifest-tuna.webmanifest',
+  'icons/tuna/icon-192.png',
+  'icons/tuna/icon-512.png',
+  'icons/tuna/icon-maskable-512.png',
+  'icons/tuna/apple-touch-icon.png',
+  'icons/tuna/favicon-32.png',
+  'icons/icon.svg',
+  'icons/icon-192.png',
+  'icons/icon-512.png',
+  'icons/icon-maskable-512.png',
+  'icons/apple-touch-icon.png'
 ];
 
-self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
-});
-
-self.addEventListener('activate', event => {
+self.addEventListener('install', function (event) {
   event.waitUntil(
-    caches.keys()
-      .then(keys => Promise.all(keys.filter(k => k.startsWith('no-kapu-tuner-') && k !== CACHE).map(k => caches.delete(k))))
-      .then(() => self.clients.claim())
+    caches.open(CACHE).then(function (cache) { return cache.addAll(SHELL); })
+      .then(function () { return self.skipWaiting(); })
   );
 });
 
-// Cache first (instant + offline). The cache is only refreshed when VERSION changes.
-self.addEventListener('fetch', event => {
-  const req = event.request;
+self.addEventListener('activate', function (event) {
+  event.waitUntil(
+    caches.keys().then(function (keys) {
+      return Promise.all(keys.filter(function (k) { return k !== CACHE; })
+        .map(function (k) { return caches.delete(k); }));
+    }).then(function () { return self.clients.claim(); })
+  );
+});
+
+// Cache first (instant, offline), refreshed from the network in the background.
+self.addEventListener('fetch', function (event) {
+  var req = event.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
-  event.respondWith((async () => {
-    const cached = await caches.match(req, { ignoreSearch: true });
-    if (cached) return cached;
-    try { return await fetch(req); }
-    catch (e) {
-      if (req.mode === 'navigate') { const home = await caches.match('index.html'); if (home) return home; }
-      return Response.error();
-    }
-  })());
+  event.respondWith(
+    caches.match(req, { ignoreSearch: true }).then(function (cached) {
+      var refresh = fetch(req).then(function (res) {
+        if (res && res.ok) {
+          var copy = res.clone();
+          caches.open(CACHE).then(function (cache) { cache.put(req, copy); });
+        }
+        return res;
+      }).catch(function () { return cached; });
+      return cached || refresh;
+    })
+  );
 });

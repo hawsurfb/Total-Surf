@@ -1,37 +1,31 @@
 {
-  "name": "No Kapu Tuner",
-  "short_name": "No Kapu",
+  "name": "No Kapu Tuna",
+  "short_name": "No Kapu Tuna",
   "description": "A sleek, offline guitar and ukulele tuner. No ads, no extras.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#1b1b1b",
-  "theme_color": "#1b1b1b",
+  "background_color": "#0a2230",
+  "theme_color": "#0a2230",
   "icons": [
     {
-      "src": "icons/icon-192.png",
+      "src": "icons/tuna/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "icons/icon-512.png",
+      "src": "icons/tuna/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "icons/icon-maskable-512.png",
+      "src": "icons/tuna/icon-maskable-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
-    },
-    {
-      "src": "icons/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
     }
   ]
 }

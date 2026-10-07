@@ -1,170 +1,214 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="en" data-theme="default">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#1b1b1b">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="No Kapu Tuner">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="format-detection" content="telephone=no">
+<meta name="apple-mobile-web-app-title" content="No Kapu">
 <title>No Kapu Tuner</title>
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest" id="lnkManifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml" id="lnkIcon">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" id="lnkApple">
+<script>
+  /* Apply the saved palette before first paint so Tuna never flashes the default look. */
+  try { if (localStorage.getItem('nokapu.theme') === 'tuna') document.documentElement.setAttribute('data-theme', 'tuna'); } catch (e) {}
+  window.__nkLinks = function (tuna) {
+    var set = function (id, href, type) { var l = document.getElementById(id); if (!l) return; l.setAttribute('href', href); if (type) l.setAttribute('type', type); };
+    set('lnkManifest', tuna ? 'manifest-tuna.webmanifest' : 'manifest.webmanifest');
+    set('lnkIcon', tuna ? 'icons/tuna/favicon-32.png' : 'icons/icon.svg', tuna ? 'image/png' : 'image/svg+xml');
+    set('lnkApple', tuna ? 'icons/tuna/apple-touch-icon.png' : 'icons/apple-touch-icon.png');
+  };
+</script>
 <style>
-  /* ---------- Themes. Night = the dark reference UI. Tuna = an ahi palette (ruby, deep ocean, sea salt, limu green, yellowfin gold). ---------- */
-  :root { --state: var(--idle); }
-  [data-theme="night"] {
-    --bg: #1b1b1b; --bg2: #1b1b1b; --panel: #2e2e2e; --panel-line: #3b3b3b;
-    --text: #e6e6e6; --dim: #a8a8a8; --track: #3b3b3b; --stage: transparent;
-    --off: #ffb020; --on: #69cd7f; --idle: #6b6b6b; --accent: #ffb020;
-    --primary-bg: #e6e6e6; --primary-text: #1b1b1b;
-    --leaf-opacity: 0.07; --leafvein: #1b1b1b;
+  :root { color-scheme: dark; }
+  /* Default ("Night"): charcoal, soft red when off, mint when in tune. */
+  [data-theme="default"] {
+    --bg: #1b1b1b; --bg2: #1b1b1b; --panel: #2e2e2e; --line: #3b3b3b;
+    --text: #e6e6e6; --dim: #a8a8a8; --idle: #6b6b6b;
+    --off: #e8625c; --on: #69cd7f; --accent: #ffb020;
+    --leaf-opacity: .1; --leafvein: #1b1b1b;
   }
+  /* Tuna: ahi palette. Deep ocean, coral flesh, limu seafoam, yellowfin gold. */
   [data-theme="tuna"] {
-    /* Ahi palette: deep ocean back, ruby flesh, sea-salt white, limu green, a touch of yellowfin gold */
-    --bg: #0a2230; --bg2: #0d2b3d; --panel: #123246; --panel-line: #21495f;
-    --text: #eef3f2; --dim: #93b2bf; --track: #24495c; --stage: transparent;
-    --off: #ff6b61; --on: #6fe0bd; --idle: #5d8294; --accent: #f2c14e;
-    --primary-bg: #c8283f; --primary-text: #ffffff;
-    --leaf-opacity: 0.09; --leafvein: #0a2230;
+    --bg: #0a2230; --bg2: #0d2b3d; --panel: #123246; --line: #21495f;
+    --text: #eef3f2; --dim: #93b2bf; --idle: #5d8294;
+    --off: #ff6b61; --on: #6fe0bd; --accent: #f2c14e;
+    --leaf-opacity: .1; --leafvein: #0a2230;
   }
 
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  [hidden] { display: none !important; }
   html, body {
-    margin: 0; height: 100%; overscroll-behavior: none;
+    height: 100%; margin: 0; overscroll-behavior: none;
     background: var(--bg); color: var(--text);
-    font-family: "Noto Sans", "Open Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
-    -webkit-user-select: none; user-select: none;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   }
-  body { display: flex; justify-content: center; }
-  button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulation; }
-  button:focus-visible { outline: 3px solid var(--text); outline-offset: 2px; }
+  body { overflow: hidden; touch-action: manipulation; -webkit-user-select: none; user-select: none; }
+  button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; padding: 0; touch-action: manipulation; }
+  button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
 
-  .app {
-    position: relative; width: 100%; max-width: 560px; height: 100%; height: 100dvh; overflow: hidden;
-    background: linear-gradient(180deg, var(--bg), var(--bg2));
+  .app { position: fixed; inset: 0; background: linear-gradient(180deg, var(--bg), var(--bg2)); --state: var(--idle); }
+  .app[data-state="off"] { --state: var(--off); }
+  .app[data-state="on"] { --state: var(--on); }
+  .screen {
+    position: absolute; inset: 0; display: flex; flex-direction: column; overflow: hidden;
+    padding: max(14px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right))
+             max(18px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
   }
-  .app[data-state="off"]  { --state: var(--off); }
-  .app[data-state="on"]   { --state: var(--on); }
-  .app[data-state="idle"] { --state: var(--idle); }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
-  .view {
-    position: absolute; inset: 0; display: none; flex-direction: column;
-    padding: max(14px, env(safe-area-inset-top)) 18px max(14px, env(safe-area-inset-bottom));
+  /* ================= opening screen ================= */
+  #start { align-items: center; justify-content: center; cursor: pointer; }
+  .art { position: absolute; inset: 0; pointer-events: none; background-size: cover; background-position: center; }
+  .leaf { position: absolute; color: var(--text); opacity: var(--leaf-opacity); }
+  .leaf-a { width: 360px; height: 360px; right: -110px; top: -70px; transform: rotate(25deg); }
+  .leaf-b { width: 420px; height: 420px; left: -160px; bottom: -110px; transform: rotate(-155deg); }
+  .leaf-c { width: 230px; height: 230px; left: -70px; top: 22%; transform: rotate(60deg); opacity: calc(var(--leaf-opacity) * .7); }
+  .brand-default, .brand-tuna { position: relative; display: flex; flex-direction: column; align-items: center; }
+  .brand-default { width: min(80vw, 440px); }
+  .brand-default img { width: 100%; height: auto; display: block; }
+  .brand-tuna { display: none; width: min(80vw, 440px); gap: 4vh; }
+  .brand-tuna .fish { width: 86%; align-self: flex-end; margin-right: 2%; height: auto; display: block; }
+  .brand-tuna .wm { width: 100%; height: auto; display: block; }
+  [data-theme="tuna"] .brand-default, [data-theme="tuna"] .leaf { display: none; }
+  [data-theme="tuna"] .brand-tuna { display: flex; }
+  [data-theme="tuna"] #start .art { background-image: url(img/tuna-opening-bg.webp); }
+  .msg {
+    position: absolute; left: 24px; right: 24px; bottom: max(36px, env(safe-area-inset-bottom)); margin: 0;
+    text-align: center; color: var(--dim); font-size: 14px; line-height: 1.45; min-height: 1.4em;
   }
-  .app[data-view="home"] #viewHome,
-  .app[data-view="tuner"] #viewTuner,
-  .app[data-view="settings"] #viewSettings { display: flex; }
 
-  .icon-btn { width: 44px; height: 44px; padding: 0; border: 0; border-radius: 12px; background: transparent;
-              display: flex; align-items: center; justify-content: center; }
-  .ghost { min-height: 44px; padding: 0 18px; border-radius: 10px; border: 1px solid var(--panel-line);
-           background: transparent; font-size: 15px; font-weight: 600; }
-  .fine { margin: 0; font-size: 13px; color: var(--dim); }
+  /* ================= tuner screen ================= */
+  #tuner .art { display: none; }
+  [data-theme="tuna"] #tuner .art { display: block; background-image: url(img/tuna-tuner-bg.webp); }
+  #tuner > *:not(.art) { position: relative; }
 
-  /* ---------- Opening screen ---------- */
-  .home { align-items: center; justify-content: center; text-align: center; }
-  .home > .content { position: relative; z-index: 1; width: 100%; display: flex; flex-direction: column; align-items: center; }
-  .brand { margin: 0; font-size: 34px; font-weight: 300; letter-spacing: -0.01em; }
-  .brand .b1 { font-weight: 700; }
-  .rule { display: block; width: 28px; height: 2px; margin: 16px auto 14px; border-radius: 2px; background: var(--accent); }
-  .tag { margin: 0 0 44px; font-size: 12px; font-weight: 600; letter-spacing: 0.22em; text-transform: uppercase; color: var(--dim); }
-    .primary { width: 100%; max-width: 340px; min-height: 58px; border: 0; border-radius: 12px;
-             background: var(--primary-bg); color: var(--primary-text); font-size: 18px; font-weight: 600; letter-spacing: 0.04em; }
-  .home .fine { margin-top: 12px; }
-  .home .ghost { margin-top: 22px; }
-  .msg { display: none; margin-top: 16px; max-width: 340px; padding: 10px 12px; border-radius: 10px; text-align: left;
-         background: var(--panel); border: 1px solid var(--off); color: var(--text); font-size: 14px; line-height: 1.5; white-space: pre-line;
-         -webkit-user-select: text; user-select: text; }
-  .msg.show { display: block; }
-  .leaf { position: absolute; pointer-events: none; color: var(--text); opacity: var(--leaf-opacity); }
-  .leaf-a { width: 300px; height: 300px; right: -90px; top: -60px; transform: rotate(25deg); }
-  .leaf-b { width: 340px; height: 340px; left: -130px; bottom: -90px; transform: rotate(-155deg); }
-  .leaf-c { width: 180px; height: 180px; right: -36px; top: -22px; transform: rotate(20deg); }
+  .bar { display: flex; align-items: center; justify-content: space-between; min-height: 48px; }
+  .icon-btn { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; color: var(--dim); }
+  .icon-btn:active { color: var(--text); }
 
-  /* ---------- Tuner screen ---------- */
-  .bar { display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; gap: 8px; }
-  .bar h1 { margin: 0; text-align: center; font-size: 20px; font-weight: 600; letter-spacing: 0.01em; }
-  .selectors { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
-  .sel { min-height: 56px; border-radius: 8px; border: 1px solid var(--panel-line); background: transparent;
-         font-size: 16px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; }
-  .strings { display: flex; gap: 8px; margin-top: 14px; justify-content: center; }
-  .strings[hidden] { display: none; }
-  .chip { position: relative; flex: 1; max-width: 64px; min-height: 48px; padding: 0; border-radius: 10px;
-          border: 1px solid var(--panel-line); background: var(--panel); font-size: 18px; font-weight: 700; }
-  .chip small { font-size: 0.6em; opacity: 0.7; }
-  .chip.target { border: 2px solid var(--state); }
-  .chip.locked::after { content: ""; position: absolute; bottom: 5px; left: 50%; width: 14px; height: 3px;
-                        margin-left: -7px; border-radius: 2px; background: var(--text); }
-  .hint { min-height: 18px; margin-top: 8px; text-align: center; font-size: 12px; color: var(--dim); }
+  /* flick-to-pick instrument */
+  .modepick {
+    width: min(270px, 70vw); overflow-x: auto; overflow-y: hidden; display: flex;
+    padding: 0 calc(50% - 62px); scroll-snap-type: x mandatory; scrollbar-width: none;
+    -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent);
+            mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent);
+  }
+  .modepick::-webkit-scrollbar { display: none; }
+  .modepick button {
+    flex: 0 0 124px; scroll-snap-align: center; min-height: 44px; font-size: 21px; letter-spacing: .01em; font-weight: 500;
+    color: var(--accent); opacity: 0; pointer-events: none; transition: opacity .5s ease; white-space: nowrap;
+  }
+  .modepick button[aria-checked="true"] { opacity: 1; pointer-events: auto; }
+  .modepick.dragging button { opacity: .38; pointer-events: auto; color: var(--text); transition-duration: .15s; }
+  .modepick.dragging button[aria-checked="true"] { opacity: 1; color: var(--accent); }
 
-  .main { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; gap: 8px; }
-  .stage { position: relative; width: 100%; max-width: 460px; margin: 0 auto; border-radius: 24px;
-           background: var(--stage); padding: 18px 14px 40px; }
-  .gauge { display: block; width: 100%; height: auto; overflow: visible; }
-  .track { fill: none; stroke: var(--track); stroke-width: 5; stroke-linecap: round; }
-  .zone { fill: none; stroke: var(--on); stroke-width: 6; opacity: 0.55; }
-  .pointer { fill: var(--state); transition: fill 0.15s; }
-  .needle { transform-origin: 180px 190px; transition: transform 0.12s linear, opacity 0.15s; }
-  .needle rect { fill: var(--state); transition: fill 0.15s; }
-  .app[data-state="idle"] .needle { opacity: 0; }
-  .note { position: absolute; left: 50%; top: 56%; transform: translate(-50%, -50%);
-          display: flex; align-items: flex-start; color: var(--state); font-weight: 400; line-height: 0.85;
-          font-size: min(36vw, 150px); }
-  .acc { display: flex; flex-direction: column; justify-content: space-between; height: 0.8em; min-width: 0.3em;
-         margin-left: 0.05em; font-size: 0.26em; line-height: 1; }
-  .status { position: absolute; left: 0; right: 0; bottom: 12px; text-align: center; font-size: 14px;
-            font-weight: 800; letter-spacing: 0.14em; color: var(--state); }
-  .readout { display: flex; justify-content: space-between; align-items: flex-start; width: 100%; max-width: 460px;
-             margin: 0 auto; padding: 0 10px; font-size: 20px; font-variant-numeric: tabular-nums; }
-  .readout .unit { color: var(--dim); }
-  .readout b { font-weight: 600; }
-  .tgt { display: block; font-size: 12px; color: var(--dim); }
-  .readout .r { text-align: right; }
+  /* flat | frequency | sharp on one line */
+  .fsrow { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; margin-top: 4px; min-height: 52px; }
+  .acc-ind { font-size: 40px; line-height: 1; color: var(--idle); opacity: .45; transition: color .15s, opacity .15s; padding: 2px 4px; }
+  .acc-ind.flat { justify-self: start; }
+  .acc-ind.sharp { justify-self: end; }
+  .acc-ind.lit { color: var(--state); opacity: 1; }
+  .hz { font-size: 19px; letter-spacing: .02em; font-variant-numeric: tabular-nums; color: var(--dim); text-align: center; min-width: 8ch; }
+  .hz.ghost { color: var(--idle); opacity: .7; }
 
-  /* ---------- Settings ---------- */
-  .settings { overflow: hidden; }
-  .settings .bar { position: relative; z-index: 1; }
-  .body { position: relative; z-index: 1; flex: 1; overflow-y: auto; padding-top: 6px; }
-  .body h2 { margin: 22px 0 10px; font-size: 13px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); }
-  .themes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .theme-card { padding: 12px; border-radius: 12px; border: 2px solid var(--panel-line); background: var(--panel);
-                text-align: left; font-size: 16px; font-weight: 700; }
-  .theme-card[aria-pressed="true"] { border-color: var(--text); }
-  .swatches { display: flex; gap: 6px; margin-bottom: 10px; }
-  .swatches i { width: 26px; height: 26px; border-radius: 50%; border: 1px solid rgba(128,128,128,0.45); display: block; }
-  .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px;
-         padding: 0 14px; border-radius: 12px; border: 1px solid var(--panel-line); background: var(--panel);
-         font-size: 17px; font-weight: 600; }
-  .stepper { display: flex; align-items: center; gap: 10px; font-variant-numeric: tabular-nums; }
-  .stepper button { width: 44px; height: 44px; padding: 0; border-radius: 10px; border: 1px solid var(--panel-line);
-                    background: transparent; font-size: 22px; }
-  .switch { position: relative; width: 56px; height: 32px; padding: 0; border-radius: 16px; border: 0; background: var(--track); }
-  .switch::after { content: ""; position: absolute; top: 4px; left: 4px; width: 24px; height: 24px; border-radius: 50%;
-                   background: var(--text); transition: transform 0.15s; }
+  .readout { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; position: relative; }
+  .note-wrap { display: flex; justify-content: center; align-items: baseline; }
+  .note {
+    font-weight: 300; font-size: clamp(130px, 46vw, 250px); line-height: 1; letter-spacing: -.02em; white-space: nowrap;
+    color: var(--state); transition: color .12s linear; font-variant-numeric: tabular-nums;
+  }
+  .note .acc { font-size: .38em; vertical-align: top; position: relative; top: .12em; margin-left: .02em; }
+  .note .oct { font-size: .2em; margin-left: .1em; letter-spacing: 0; color: var(--dim); }
+  .app[data-state="idle"] .note { color: var(--idle); opacity: .5; }
+  .centsbox { position: absolute; left: 2px; bottom: 6px; display: flex; flex-direction: column; gap: 0; }
+  .centsbox .lab { font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--dim); }
+  .centsbox .val { font-size: 34px; font-variant-numeric: tabular-nums; color: var(--state); line-height: 1.1; min-width: 3ch; }
+  .app[data-state="idle"] .centsbox .val { color: var(--idle); opacity: .6; }
+
+  .meter { width: 100%; max-width: 440px; margin: 6px auto 0; padding: 0 4px; }
+  .scale { position: relative; height: 96px; }
+  .tick { position: absolute; bottom: 0; width: 2px; height: 26px; margin-left: -1px; border-radius: 1px; background: var(--line); }
+  .tick.major { height: 44px; background: var(--dim); opacity: .55; }
+  .tick.mid { height: 70px; background: var(--dim); opacity: 1; }
+  .needle {
+    position: absolute; bottom: 0; left: 50%; width: 4px; height: 94px; margin-left: -2px; border-radius: 2px;
+    background: var(--state); transition: left .12s linear, background .2s, opacity .2s;
+  }
+  .app[data-state="idle"] .needle { opacity: .3; }
+
+  /* bottom notes */
+  .bottom { margin: 18px -20px 0; min-height: 148px; display: flex; align-items: flex-end; }
+  .ruler {
+    width: 100%; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; position: relative;
+    -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 16%, #000 84%, transparent);
+            mask-image: linear-gradient(90deg, transparent, #000 16%, #000 84%, transparent);
+  }
+  .ruler::-webkit-scrollbar { display: none; }
+  .rtrack { display: flex; padding: 0 calc(50% - 28px); width: max-content; min-width: 100%; }
+  .rn {
+    flex: 0 0 56px; height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 8px;
+    color: var(--dim); transition: opacity 1.1s ease, color .15s; font-variant-numeric: tabular-nums;
+  }
+  .rn .l { font-size: 22px; line-height: 1; white-space: nowrap; }
+  .rn .l small { font-size: 12px; opacity: .7; margin-left: 1px; }
+  .rn .tk { display: block; width: 2px; height: 36px; border-radius: 1px; background: currentColor; opacity: .35; }
+  .rn.c .tk { height: 56px; opacity: .6; }
+  .rn.cur { color: var(--state); }
+  .app[data-state="idle"] .rn.cur { color: var(--accent); }
+  .rn.cur .l { font-size: 30px; }
+  .rn.cur .tk { opacity: 1; width: 3px; }
+  .ruler.solo .rn:not(.cur) { opacity: 0; }
+  .ruler.gone .rn { opacity: 0; }
+
+  .strings { width: 100%; display: flex; justify-content: space-around; align-items: flex-end; padding: 0 16px; }
+  .gs { flex: 1; max-width: 70px; display: flex; flex-direction: column; align-items: center; gap: 8px; min-height: 44px; color: var(--dim); position: relative; }
+  .gs .l { font-size: 18px; line-height: 1; }
+  .gs .l small { font-size: 11px; opacity: .7; margin-left: 1px; }
+  .gs .ln { display: block; width: 2px; height: 118px; border-radius: 1px; background: var(--line); transition: background .15s, width .15s; }
+  .gs.active { color: var(--state); }
+  .gs.active .ln { background: var(--state); width: 3px; }
+  .gs[aria-pressed="true"]::after { content: ""; position: absolute; bottom: -10px; width: 4px; height: 4px; border-radius: 50%; background: var(--text); }
+
+  /* ================= settings ================= */
+  #settings { overflow-y: auto; }
+  .set-head { display: flex; align-items: center; gap: 4px; min-height: 52px; margin-bottom: 8px; }
+  .set-head h2 { margin: 0; font-size: 20px; font-weight: 600; }
+  .group { margin-top: 20px; }
+  .group > h3 { margin: 0 0 10px; font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; font-size: 17px; }
+  .seg { display: flex; gap: 2px; padding: 3px; border-radius: 12px; background: var(--panel); }
+  .seg button { min-height: 38px; padding: 6px 14px; border-radius: 9px; color: var(--dim); font-size: 15px; }
+  .seg button[aria-pressed="true"] { background: var(--line); color: var(--text); }
+  .palettes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .pal { padding: 12px; border-radius: 14px; border: 2px solid var(--line); text-align: left; display: flex; flex-direction: column; gap: 10px; }
+  .pal[aria-pressed="true"] { border-color: var(--accent); }
+  .pal .sw { display: flex; gap: 6px; }
+  .pal .sw i { width: 22px; height: 22px; border-radius: 50%; display: block; border: 1px solid rgba(255,255,255,.12); }
+  .pal span { font-size: 16px; }
+  .stepper { display: flex; align-items: center; gap: 12px; font-variant-numeric: tabular-nums; }
+  .stepper button { width: 42px; height: 42px; border-radius: 50%; border: 1.5px solid var(--line); font-size: 22px; line-height: 1; }
+  .opts { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
+  .opt { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 54px; text-align: left; border-bottom: 1px solid var(--line); font-size: 17px; }
+  .opt small { color: var(--dim); font-size: 13px; letter-spacing: .04em; }
+  .opt .chk { width: 20px; height: 20px; color: var(--accent); opacity: 0; }
+  .opt[aria-checked="true"] .chk { opacity: 1; }
+  .switch { position: relative; width: 56px; height: 32px; border-radius: 16px; background: var(--line); transition: background .15s; flex: none; }
+  .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 26px; height: 26px; border-radius: 50%; background: var(--text); transition: transform .15s; }
   .switch[aria-checked="true"] { background: var(--on); }
   .switch[aria-checked="true"]::after { transform: translateX(24px); background: #fff; }
-  .body .fine { margin-top: 14px; }
 
-  /* ---------- Picker sheet ---------- */
-  .backdrop { position: absolute; inset: 0; z-index: 10; display: flex; align-items: flex-end; background: rgba(0,0,0,0.45); }
-  .backdrop[hidden] { display: none; }
-  .sheet { width: 100%; padding: 18px 18px calc(18px + env(safe-area-inset-bottom)); border-radius: 20px 20px 0 0;
-           background: var(--panel); color: var(--text); }
-  .sheet h2 { margin: 0 0 6px; font-size: 14px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); }
-  .opt { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 56px; padding: 0 4px;
-         border: 0; border-bottom: 1px solid var(--panel-line); background: transparent; font-size: 19px; font-weight: 600; text-align: left; }
-  .sheet .ghost { width: 100%; margin-top: 12px; }
-
-  @media (prefers-reduced-motion: reduce) { .needle, .switch::after { transition: none; } }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
-<body data-theme="night">
+<body>
 
-<!-- Shared artwork: original vector motifs (monstera leaf). Used on the opening and settings screens only. -->
+<!-- Monstera leaf artwork for the Default palette (opening screen). -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
   <defs>
     <symbol id="monstera" viewBox="0 0 200 200">
@@ -175,698 +219,744 @@
   </defs>
 </svg>
 
-<div class="app" id="app" data-state="idle" data-view="home">
+<div class="app" id="app" data-state="idle">
 
-  <!-- ===== Opening screen ===== -->
-  <section class="view home" id="viewHome" aria-label="Welcome">
-    <svg class="leaf leaf-a" viewBox="0 0 200 200" aria-hidden="true"><use href="#monstera" width="200" height="200"/></svg>
-    <svg class="leaf leaf-b" viewBox="0 0 200 200" aria-hidden="true"><use href="#monstera" width="200" height="200"/></svg>
-    <div class="content">
-      <h1 class="brand"><span class="b1">No Kapu</span> <span class="b2" data-word>Tuner</span></h1>
-      <i class="rule" aria-hidden="true"></i>
-      <p class="tag">No ads. No frills.</p>
-      <button class="primary" id="startBtn" type="button">Start tuning</button>
-      <p class="fine">Your device will ask to use the microphone.</p>
-      <div class="msg" id="msg" role="alert"></div>
-      <button class="ghost" id="homeSettings" type="button">Settings</button>
+  <!-- ===== opening screen: tap anywhere ===== -->
+  <main id="start" class="screen" role="button" tabindex="0" aria-label="No Kapu Tuner. Tap anywhere to start.">
+    <div class="art" aria-hidden="true">
+      <svg class="leaf leaf-a" viewBox="0 0 200 200"><use href="#monstera" width="200" height="200"/></svg>
+      <svg class="leaf leaf-b" viewBox="0 0 200 200"><use href="#monstera" width="200" height="200"/></svg>
+      <svg class="leaf leaf-c" viewBox="0 0 200 200"><use href="#monstera" width="200" height="200"/></svg>
     </div>
-  </section>
+    <div class="brand-default" aria-hidden="true">
+      <img src="img/nokapu-tuner-wordmark.svg" alt="" draggable="false">
+    </div>
+    <div class="brand-tuna" aria-hidden="true">
+      <img class="fish" src="img/tuna-fish.webp" alt="" draggable="false">
+      <img class="wm" src="img/wordmark-tuna.svg" alt="" draggable="false">
+    </div>
+    <p id="startMsg" class="msg" role="status"></p>
+  </main>
 
-  <!-- ===== Tuner screen (no artwork here) ===== -->
-  <section class="view tuner" id="viewTuner" aria-label="Tuner">
+  <!-- ===== tuner ===== -->
+  <main id="tuner" class="screen" hidden>
+    <div class="art" aria-hidden="true"></div>
     <header class="bar">
-      <button class="icon-btn" id="stopBtn" type="button" aria-label="Stop tuning and go back">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
-      </button>
-      <h1 id="title">Guitar Tuner</h1>
-      <button class="icon-btn" id="gearBtn" type="button" aria-label="Settings">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2.2"/><circle cx="8" cy="17" r="2.2"/></svg>
+      <div class="modepick" id="modes" role="radiogroup" aria-label="Instrument" tabindex="0">
+        <button type="button" role="radio" data-mode="guitar" aria-checked="false">Guitar</button>
+        <button type="button" role="radio" data-mode="ukulele" aria-checked="false">Ukulele</button>
+        <button type="button" role="radio" data-mode="chromatic" aria-checked="false">Chromatic</button>
+      </div>
+      <button id="openSettings" class="icon-btn" type="button" aria-label="Settings">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
       </button>
     </header>
-    <div class="selectors">
-      <button class="sel" id="instBtn" type="button" aria-haspopup="dialog"><span id="instLabel">Guitar</span>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
-      <button class="sel" id="tuningBtn" type="button" aria-haspopup="dialog"><span id="tuningLabel">Standard</span>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
-    </div>
-    <div class="strings" id="strings" aria-label="Strings"></div>
-    <div class="hint" id="hint"></div>
-    <div class="main">
-      <div class="stage">
-        <svg class="gauge" viewBox="0 0 360 214" role="img" aria-label="Tuning gauge. The marker sits at the top when the note is in tune.">
-          <path class="track" d="M30 190 A150 150 0 0 1 330 190"/>
-          <path class="zone" id="zone" d=""/>
-          <polygon class="pointer" points="180,22 171,8 189,8"/>
-          <g class="needle" id="needle"><rect x="174" y="26" width="12" height="28" rx="6"/></g>
-        </svg>
-        <div class="note" aria-live="off"><span id="nLetter">–</span><span class="acc"><span id="nSharp"></span><span id="nOct"></span></span></div>
-        <div class="status" id="status">PLAY A NOTE</div>
-      </div>
-      <div class="readout">
-        <div class="l"><span class="unit">Hz</span> <b id="hz">—</b><span class="tgt" id="tgt">target —</span></div>
-        <div class="r"><b id="cents">—</b> <span class="unit">Cents</span></div>
-      </div>
-    </div>
-  </section>
 
-  <!-- ===== Settings screen ===== -->
-  <section class="view settings" id="viewSettings" aria-label="Settings">
-    <svg class="leaf leaf-c" viewBox="0 0 200 200" aria-hidden="true"><use href="#monstera" width="200" height="200"/></svg>
-    <header class="bar">
-      <button class="icon-btn" id="settingsBack" type="button" aria-label="Back">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+    <div class="fsrow" aria-hidden="true">
+      <span id="flatInd" class="acc-ind flat">♭</span>
+      <span id="hzTxt" class="hz ghost">000.0 Hz</span>
+      <span id="sharpInd" class="acc-ind sharp">♯</span>
+    </div>
+
+    <section class="readout" aria-hidden="true">
+      <div class="note-wrap"><div id="note" class="note">C<span class="oct">4</span></div></div>
+      <div class="centsbox"><span class="lab">Cent</span><span id="centsTxt" class="val">0</span></div>
+    </section>
+
+    <section class="meter" aria-hidden="true">
+      <div class="scale" id="scale"><div class="needle" id="needle"></div></div>
+    </section>
+
+    <section class="bottom">
+      <div id="ruler" class="ruler" aria-label="Notes. Swipe to browse."><div id="rtrack" class="rtrack"></div></div>
+      <nav id="strings" class="strings" aria-label="Strings" hidden></nav>
+    </section>
+    <div id="status" class="sr" role="status" aria-live="polite"></div>
+  </main>
+
+  <!-- ===== settings ===== -->
+  <main id="settings" class="screen" hidden>
+    <header class="set-head">
+      <button id="closeSettings" class="icon-btn" type="button" aria-label="Back">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
       </button>
-      <h1>Settings</h1>
-      <span></span>
+      <h2>Settings</h2>
     </header>
-        <div class="body">
-      <h2>Theme</h2>
-      <div class="themes">
-        <button class="theme-card" type="button" data-theme-pick="night" aria-pressed="true">
-          <span class="swatches" aria-hidden="true"><i style="background:#1b1b1b"></i><i style="background:#ffb020"></i><i style="background:#69cd7f"></i></span>Night</button>
-        <button class="theme-card" type="button" data-theme-pick="tuna" aria-pressed="false">
-          <span class="swatches" aria-hidden="true"><i style="background:#0a2230"></i><i style="background:#c8283f"></i><i style="background:#6fe0bd"></i><i style="background:#f2c14e"></i></span>Tuna</button>
+
+    <section class="group">
+      <h3>Palette</h3>
+      <div class="palettes" id="palettes" role="group" aria-label="Palette">
+        <button type="button" class="pal" data-theme-choice="default" aria-pressed="false">
+          <span class="sw"><i style="background:#1b1b1b"></i><i style="background:#e8625c"></i><i style="background:#69cd7f"></i><i style="background:#ffb020"></i></span><span>Default</span>
+        </button>
+        <button type="button" class="pal" data-theme-choice="tuna" aria-pressed="false">
+          <span class="sw"><i style="background:#0a2230"></i><i style="background:#ff6b61"></i><i style="background:#6fe0bd"></i><i style="background:#f2c14e"></i></span><span>Tuna</span>
+        </button>
       </div>
-      <h2>Reference pitch</h2>
-      <div class="row"><span>Concert A</span>
+    </section>
+
+    <section class="group">
+      <h3>Tuning</h3>
+      <div class="row">
+        <span>Reference pitch</span>
         <div class="stepper">
-          <button type="button" id="refDown" aria-label="Lower reference pitch">−</button>
-          <span id="refVal">A4 = 440 Hz</span>
-          <button type="button" id="refUp" aria-label="Raise reference pitch">+</button>
+          <button id="a4Down" type="button" aria-label="Lower reference pitch">−</button>
+          <span id="a4Val">A = 440 Hz</span>
+          <button id="a4Up" type="button" aria-label="Raise reference pitch">+</button>
         </div>
       </div>
-      <h2>Sound</h2>
-      <div class="row"><span id="chimeLabel">Chime when in tune</span>
-        <button class="switch" type="button" id="chimeSwitch" role="switch" aria-checked="true" aria-labelledby="chimeLabel"></button>
+      <div class="row">
+        <span>Black keys</span>
+        <div class="seg" id="spelling" role="group" aria-label="Black key spelling">
+          <button type="button" data-spell="sharp" aria-pressed="false">C♯</button>
+          <button type="button" data-spell="flat" aria-pressed="false">D♭</button>
+        </div>
       </div>
-      <p class="fine" id="tolNote">In tune means within ±5 cents.</p>
-    </div>
-  </section>
+    </section>
 
-  <!-- ===== Picker sheet ===== -->
-  <div class="backdrop" id="sheet" hidden>
-    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
-      <h2 id="sheetTitle">Instrument</h2>
-      <div id="sheetList"></div>
-      <button class="ghost" id="sheetCancel" type="button">Cancel</button>
-    </div>
-  </div>
+    <section class="group">
+      <h3>Guitar tuning</h3>
+      <div class="opts" id="tunings" role="radiogroup" aria-label="Guitar tuning"></div>
+    </section>
+
+    <section class="group">
+      <h3>Sound</h3>
+      <div class="row">
+        <span>Chime when in tune</span>
+        <button id="chimeSwitch" class="switch" type="button" role="switch" aria-checked="true" aria-label="Chime when in tune"></button>
+      </div>
+    </section>
+  </main>
 </div>
 
+<script src="tuner-core.js"></script>
 <script>
-'use strict';
+(function () {
+  'use strict';
 
-/* =====================================================================
-   TUNABLE CONSTANTS  (the one you asked for is first)
-   ===================================================================== */
-const IN_TUNE_CENTS   = 5;     // within ± this many cents counts as "in tune"
-const REARM_CENTS     = 15;    // chime can't fire again until you drift beyond ± this
-const HOLD_MS         = 600;   // must stay in tune this long before the chime
-const CHIME_PAUSE_MS  = 400;   // detection is paused this long while the chime plays
-const MIN_RMS         = 0.01;  // volume gate (0..1). Raise if room noise triggers readings.
-const REF_MIN = 430, REF_MAX = 450, REF_DEFAULT = 440;   // A4 reference pitch range (Hz)
+  var C = window.TunerCore;
+  var $ = function (id) { return document.getElementById(id); };
+  var qsa = function (sel) { return Array.prototype.slice.call(document.querySelectorAll(sel)); };
 
-const FFT_SIZE        = 4096;  // analysis buffer length (samples)
-const FRAME_MS        = 30;    // minimum time between detections
-const MEDIAN_FRAMES   = 5;     // smoothing window (median of last N readings)
-const YIN_THRESHOLD   = 0.15;  // YIN absolute threshold (lower = stricter)
-const YIN_FALLBACK    = 0.25;  // weakest dip accepted when nothing beats the threshold
-const SILENCE_HOLD_MS = 800;   // keep last reading on screen this long after sound stops
-const REARM_SILENCE_MS= 600;   // silence this long counts as "stopped playing" (re-arms chime)
-const GAP_GRACE_MS    = 250;   // brief dropouts shorter than this don't reset the hold timer
-const METER_RANGE_CENTS = 50;  // gauge spans ± this many cents (half circle = ±50)
-const CHROMATIC_MIN_HZ = 60, CHROMATIC_MAX_HZ = 2200;   // roughly C2 .. C7
-const STRING_RANGE_LOW = 0.8, STRING_RANGE_HIGH = 1.5;  // search band around string pitches
-const OCTAVE_NEAR_CENTS = 150; // "close to a string" for octave-error correction
+  var A4_MIN = 415, A4_MAX = 466;
+  var FRAME_MS = 40;            // pitch detection ~25x per second
+  var IDLE_AFTER_MS = 600;      // no pitch for this long -> idle
+  var SOLO_AFTER_MS = 1000;     // chromatic ruler: other notes fade after this much silence
+  var GONE_AFTER_MS = 7000;     // ...and the last note fades after this
+  var USER_HOLD_MS = 2500;      // pause ruler auto-follow after the user touches it
+  var IN_TUNE_CENTS = 5;
+  var IN_TUNE_FRAMES = 5;
+  var RN_W = 56;                // width of one note on the ruler
+  var MIDI_LO = 12, MIDI_HI = 119; // C0 .. B8
+  var MODE_W = 124;
 
-/* =====================================================================
-   TUNING DEFINITIONS — add instruments or tunings here. Note names only (e.g. 'E2').
-   Frequencies are computed from the reference pitch, so the A4 setting scales all.
-   strings: null = chromatic (no fixed strings).
-   ===================================================================== */
-const INSTRUMENTS = {
-  chromatic: { label: 'Chromatic', tunings: {
-    auto: { label: 'Auto', strings: null },
-  } },
-  guitar: { label: 'Guitar', tunings: {
-    standard: { label: 'Standard', strings: ['E2', 'A2', 'D3', 'G3', 'B3', 'E4'] },
-  } },
-  ukulele: { label: 'Ukulele', tunings: {
-    standard: { label: 'Standard', strings: ['G4', 'C4', 'E4', 'A4'] },   // re-entrant: G is the high G4
-    lowG:     { label: 'Low G',    strings: ['G3', 'C4', 'E4', 'A4'] },   // G dropped an octave to G3
-  } },
-};
-
-// ===== PURE LOGIC START (no DOM; unit-tested in Node) =====
-
-/* ---------- Note / frequency math ---------- */
-const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-
-// 'E2' -> MIDI number 40 (A4 = 69)
-function parseNote(name) {
-  const m = /^([A-G])([#b]?)(-?\d+)$/.exec(name);
-  if (!m) throw new Error('Bad note name: ' + name);
-  const base = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[m[1]];
-  const acc = m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0;
-  return 12 * (parseInt(m[3], 10) + 1) + base + acc;
-}
-function midiToFreq(midi, refA4) { return refA4 * Math.pow(2, (midi - 69) / 12); }
-function freqToMidiFloat(f, refA4) { return 69 + 12 * Math.log2(f / refA4); }
-function midiToName(midi) {
-  const n = NOTE_NAMES[((midi % 12) + 12) % 12];
-  return { letter: n[0], sharp: n.length > 1, octave: Math.floor(midi / 12) - 1 };
-}
-// Cents the detected pitch is above (+) or below (-) the target.
-function centsBetween(f, target) { return 1200 * Math.log2(f / target); }
-function nearestCents(f, list) {
-  let best = Infinity;
-  for (const t of list) best = Math.min(best, Math.abs(centsBetween(f, t)));
-  return best;
-}
-
-/* ---------- Small helpers ---------- */
-function median(arr) {
-  const s = arr.slice().sort((a, b) => a - b);
-  const m = s.length >> 1;
-  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
-}
-function rms(buf) {
-  let s = 0;
-  for (let i = 0; i < buf.length; i++) s += buf[i] * buf[i];
-  return Math.sqrt(s / buf.length);
-}
-
-/* ---------- Pitch detection: YIN ----------
-   buf: Float32 time-domain samples. Returns { freq, clarity } or null.
-   preferHz: optional list of expected pitches (string modes) used only to
-   correct "locked onto the 2nd harmonic" octave errors. */
-function yin(buf, sampleRate, minHz, maxHz, preferHz) {
-  const N = buf.length;
-  const tauMax = Math.min(Math.floor(sampleRate / minHz), N >> 1);
-  const tauMin = Math.max(2, Math.floor(sampleRate / maxHz));
-  const W = Math.min(2048, N - tauMax - 2);
-  if (W < 256 || tauMax <= tauMin + 2) return null;
-
-  // Steps 1-3: difference function -> cumulative mean normalised difference
-  const cm = new Float32Array(tauMax + 2);
-  cm[0] = 1;
-  let run = 0;
-  for (let tau = 1; tau <= tauMax + 1; tau++) {
-    let sum = 0;
-    for (let j = 0; j < W; j++) { const d = buf[j] - buf[j + tau]; sum += d * d; }
-    run += sum;
-    cm[tau] = run > 0 ? (sum * tau) / run : 1;
+  function store(key, value) {
+    try {
+      if (value === undefined) return localStorage.getItem('nokapu.' + key);
+      localStorage.setItem('nokapu.' + key, String(value));
+    } catch (e) { /* storage unavailable: settings just won't persist */ }
+    return null;
   }
 
-  // Step 4: first dip below threshold, then walk down to its local minimum
-  let tau = -1;
-  for (let t = tauMin; t <= tauMax; t++) {
-    if (cm[t] < YIN_THRESHOLD) {
-      while (t + 1 <= tauMax && cm[t + 1] < cm[t]) t++;
-      tau = t;
-      break;
-    }
+  var state = { mode: 'guitar', theme: 'default', a4: 440, locked: null, flats: false, tuning: 'standard', chime: true };
+  var v;
+  if ((v = store('mode')) && C.INSTRUMENTS[v]) state.mode = v;
+  if (store('theme') === 'tuna') state.theme = 'tuna';
+  if ((v = parseInt(store('a4'), 10)) >= A4_MIN && v <= A4_MAX) state.a4 = v;
+  if (store('flats') === '1') state.flats = true;
+  if ((v = store('tuning')) && C.TUNINGS[v]) state.tuning = v;
+  if (store('chime') === '0') state.chime = false;
+
+  var appEl = $('app');
+
+  /* ---------- colours (for the brightness ramp) ---------- */
+  var palette = { off: [232, 98, 92], bg: [27, 27, 27] };
+  function hexToRgb(h) {
+    h = (h || '').trim();
+    if (h.charAt(0) !== '#') return null;
+    if (h.length === 4) h = '#' + h[1] + h[1] + h[2] + h[2] + h[3] + h[3];
+    var n = parseInt(h.slice(1), 16);
+    return isNaN(n) ? null : [(n >> 16) & 255, (n >> 8) & 255, n & 255];
   }
-  if (tau < 0) { // fallback: best local minimum if it is reasonably clear
-    let best = tauMin;
-    for (let t = tauMin; t <= tauMax; t++) if (cm[t] < cm[best]) best = t;
-    const isMin = best > 1 && cm[best] <= cm[best - 1] && cm[best] <= cm[best + 1];
-    if (!isMin || cm[best] > YIN_FALLBACK) return null;
-    tau = best;
+  function readPalette() {
+    var cs = getComputedStyle(document.documentElement);
+    palette.off = hexToRgb(cs.getPropertyValue('--off')) || palette.off;
+    palette.bg = hexToRgb(cs.getPropertyValue('--bg')) || palette.bg;
+  }
+  // Out of tune: the note is a dim red that brightens as you close in.
+  function offColor(absCents) {
+    var near = 1 - Math.min(Math.abs(absCents), 50) / 50;   // 0 far .. 1 near
+    var f = 0.34 + 0.66 * near;
+    var o = palette.off, b = palette.bg;
+    return 'rgb(' + [0, 1, 2].map(function (i) { return Math.round(b[i] + (o[i] - b[i]) * f); }).join(',') + ')';
   }
 
-  // Octave-error guard (string modes only): if the detected pitch is NOT near
-  // any string but half of it IS, and the signal is periodic at that lower
-  // pitch too, we latched onto a harmonic -> use the lower octave.
-  if (preferHz && preferHz.length && nearestCents(sampleRate / tau, preferHz) > OCTAVE_NEAR_CENTS) {
-    const t2 = tau * 2;
-    const lo = Math.max(tauMin, Math.round(t2 * 0.97));
-    const hi = Math.min(tauMax, Math.round(t2 * 1.03));
-    if (hi > lo) {
-      let b = lo;
-      for (let t = lo; t <= hi; t++) if (cm[t] < cm[b]) b = t;
-      if (cm[b] < YIN_FALLBACK && nearestCents(sampleRate / b, preferHz) <= OCTAVE_NEAR_CENTS) tau = b;
-    }
+  /* ---------- palette / settings ---------- */
+  var TUNA_IMGS = ['img/tuna-opening-bg.webp', 'img/tuna-fish.webp', 'img/tuna-tuner-bg.webp', 'img/wordmark-tuna.svg'];
+  function preloadTuna(cb) {
+    var left = TUNA_IMGS.length, done = false;
+    function fin() { if (!done) { done = true; cb(); } }
+    TUNA_IMGS.forEach(function (u) { var i = new Image(); i.onload = i.onerror = function () { if (--left === 0) fin(); }; i.src = u; });
+    setTimeout(fin, 1500);   // never leave the switch hanging
   }
-
-  // Step 5: parabolic interpolation for sub-sample accuracy
-  let refined = tau;
-  if (tau >= 2 && tau <= tauMax) {
-    const s0 = cm[tau - 1], s1 = cm[tau], s2 = cm[tau + 1];
-    const den = 2 * (2 * s1 - s2 - s0);
-    if (den !== 0) { const shift = (s2 - s0) / den; if (Math.abs(shift) <= 1) refined += shift; }
+  function chooseTheme(name) {
+    if (name === state.theme) return;
+    if (name === 'tuna') preloadTuna(function () { applyTheme('tuna'); });   // art is ready before the swap
+    else applyTheme(name);
   }
-  return { freq: sampleRate / refined, clarity: 1 - cm[tau] };
-}
-
-/* ---------- Detector setup for an instrument + tuning ---------- */
-function getTuning(instKey, tuningKey) {
-  const inst = INSTRUMENTS[instKey];
-  return inst.tunings[tuningKey] || inst.tunings[Object.keys(inst.tunings)[0]];
-}
-function buildDetector(instKey, tuningKey, refA4) {
-  const t = getTuning(instKey, tuningKey);
-  if (!t.strings) {
-    return { strings: null, ref: refA4, minHz: CHROMATIC_MIN_HZ, maxHz: CHROMATIC_MAX_HZ, preferHz: null };
-  }
-  const midis = t.strings.map(parseNote);
-  const targetHz = midis.map(m => midiToFreq(m, refA4));
-  return {
-    strings: t.strings, midis, targetHz, ref: refA4,
-    minHz: Math.min(...targetHz) * STRING_RANGE_LOW,
-    maxHz: Math.max(...targetHz) * STRING_RANGE_HIGH,
-    preferHz: targetHz,
-  };
-}
-
-/* ---------- Turn a frequency into a reading ---------- */
-function pickTarget(freq, targetHz, lockedIndex) {
-  if (lockedIndex != null) return lockedIndex;
-  let best = 0, bestC = Infinity;
-  for (let i = 0; i < targetHz.length; i++) {
-    const c = Math.abs(centsBetween(freq, targetHz[i]));
-    if (c < bestC) { bestC = c; best = i; }
-  }
-  return best;
-}
-function evaluate(freq, det, lockedIndex) {
-  let midi, idx = -1, targetHz;
-  if (!det.strings) {
-    midi = Math.max(0, Math.min(127, Math.round(freqToMidiFloat(freq, det.ref))));
-    targetHz = midiToFreq(midi, det.ref);
-  } else {
-    idx = pickTarget(freq, det.targetHz, lockedIndex);
-    midi = det.midis[idx];
-    targetHz = det.targetHz[idx];
-  }
-  return Object.assign(
-    { freq, targetHz, cents: centsBetween(freq, targetHz), index: idx, key: det.strings ? 's' + idx : 'm' + midi },
-    midiToName(midi)
-  );
-}
-
-/* ---------- Chime gate: hold + once-per-success + hysteresis ----------
-   update(nowMs, centsOrNull, targetKey) -> true exactly when the chime should play.
-   cents is null when there is no usable signal. */
-function createChimeGate() {
-  let inSince = null, armed = true, lastKey = null, lastSignal = null;
-  return {
-    update(now, cents, key) {
-      if (cents === null) {
-        if (lastSignal !== null) {
-          const gap = now - lastSignal;
-          if (gap > GAP_GRACE_MS) inSince = null;       // real dropout: restart the hold timer
-          if (gap > REARM_SILENCE_MS) armed = true;     // you stopped playing: next success may chime
-        }
-        return false;
-      }
-      lastSignal = now;
-      if (key !== lastKey) { lastKey = key; inSince = null; armed = true; }  // new string/note
-      const off = Math.abs(cents);
-      if (off <= IN_TUNE_CENTS) {
-        if (inSince === null) inSince = now;
-        if (armed && now - inSince >= HOLD_MS) { armed = false; return true; }
-      } else {
-        inSince = null;
-        if (off > REARM_CENTS) armed = true;            // drifted far enough: allow another chime
-      }
-      return false;
-    },
-  };
-}
-// ===== PURE LOGIC END =====
-
-/* =====================================================================
-   APP (DOM + audio). Everything below needs a browser.
-   ===================================================================== */
-const $ = id => document.getElementById(id);
-const el = {
-  app: $('app'), title: $('title'),
-  start: $('startBtn'), msg: $('msg'), homeSettings: $('homeSettings'),
-  stop: $('stopBtn'), gear: $('gearBtn'),
-  instBtn: $('instBtn'), instLabel: $('instLabel'), tuningBtn: $('tuningBtn'), tuningLabel: $('tuningLabel'),
-  strings: $('strings'), hint: $('hint'),
-  letter: $('nLetter'), sharp: $('nSharp'), oct: $('nOct'), status: $('status'),
-  needle: $('needle'), zone: $('zone'), hz: $('hz'), tgt: $('tgt'), cents: $('cents'),
-  settingsBack: $('settingsBack'), refVal: $('refVal'), refDown: $('refDown'), refUp: $('refUp'),
-  chime: $('chimeSwitch'), tolNote: $('tolNote'),
-  sheet: $('sheet'), sheetTitle: $('sheetTitle'), sheetList: $('sheetList'), sheetCancel: $('sheetCancel'),
-};
-
-function load(key, fallback) { try { const v = localStorage.getItem('no-kapu.' + key); return v === null ? fallback : v; } catch (e) { return fallback; } }
-function save(key, val) { try { localStorage.setItem('no-kapu.' + key, String(val)); } catch (e) {} }
-
-const savedInst = load('inst', 'guitar');
-const startInst = INSTRUMENTS[savedInst] ? savedInst : 'guitar';
-const savedTuning = load('tuning', '');
-const state = {
-  inst: startInst,
-  tuning: INSTRUMENTS[startInst].tunings[savedTuning] ? savedTuning : Object.keys(INSTRUMENTS[startInst].tunings)[0],
-  lockedIndex: null,
-  ref: Math.min(REF_MAX, Math.max(REF_MIN, parseInt(load('ref', REF_DEFAULT), 10) || REF_DEFAULT)),
-  muted: load('muted', 'false') === 'true',
-  theme: load('theme', 'night') === 'tuna' ? 'tuna' : 'night',
-  running: false,
-  view: 'home', prevView: 'home',
-};
-let det = buildDetector(state.inst, state.tuning, state.ref);
-
-// audio runtime
-let audioCtx = null, stream = null, source = null, analyser = null, buf = null;
-let rafId = 0, wakeLock = null;
-let lastFrameAt = 0, lastSignalAt = -Infinity, pausedUntil = 0;
-let history = [], lastReading = null;
-let gate = createChimeGate();
-
-/* ---------- Views, theme ---------- */
-function setView(v) {
-  if (v === 'settings') state.prevView = state.view;
-  state.view = v;
-  el.app.dataset.view = v;
-  if (v === 'tuner') resetReading();
-}
-function applyTheme(name) {
-  state.theme = name;
-  save('theme', name);
-  document.body.dataset.theme = name;
-  const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', name === 'tuna' ? '#0a2230' : '#1b1b1b');
-  document.querySelectorAll('[data-word]').forEach(n => { n.textContent = word(); });
-  document.title = 'No Kapu ' + word();
-  updateSelectors();
-  document.querySelectorAll('[data-theme-pick]').forEach(b =>
-    b.setAttribute('aria-pressed', String(b.dataset.themePick === name)));
-}
-
-/* ---------- Instrument / tuning selection ---------- */
-function currentStrings() { return getTuning(state.inst, state.tuning).strings; }
-function rebuildDetector() { det = buildDetector(state.inst, state.tuning, state.ref); }
-// The name of the thing changes with the palette: Night says Tuner, Tuna says Tuna.
-function word() { return state.theme === 'tuna' ? 'Tuna' : 'Tuner'; }
-function updateSelectors() {
-  el.title.textContent = INSTRUMENTS[state.inst].label + ' ' + word();
-  el.instLabel.textContent = INSTRUMENTS[state.inst].label;
-  el.tuningLabel.textContent = getTuning(state.inst, state.tuning).label;
-}
-function setInstrument(key) {
-  state.inst = key;
-  state.tuning = Object.keys(INSTRUMENTS[key].tunings)[0];
-  state.lockedIndex = null;
-  save('inst', key); save('tuning', state.tuning);
-  rebuildDetector(); updateSelectors(); buildStrings(); updateHint(); resetReading();
-}
-function setTuning(key) {
-  state.tuning = key;
-  state.lockedIndex = null;
-  save('tuning', key);
-  rebuildDetector(); updateSelectors(); buildStrings(); updateHint(); resetReading();
-}
-
-/* ---------- String chips ---------- */
-function buildStrings() {
-  el.strings.innerHTML = '';
-  const names = currentStrings();
-  el.strings.hidden = !names;
-  if (!names) return;
-  names.forEach((name, i) => {
-    const m = /^([A-G])([#b]?)(-?\d+)$/.exec(name);
-    const b = document.createElement('button');
-    b.className = 'chip'; b.type = 'button';
-    b.innerHTML = m[1] + (m[2] ? (m[2] === '#' ? '♯' : '♭') : '') + '<small>' + m[3] + '</small>';
-    b.setAttribute('aria-label', 'String ' + name);
-    b.addEventListener('click', () => {
-      state.lockedIndex = state.lockedIndex === i ? null : i;   // tap again = back to auto
-      resetReading(); updateHint();
+  function applyTheme(name) {
+    state.theme = name;
+    if (window.__nkLinks) window.__nkLinks(name === 'tuna');
+    document.documentElement.setAttribute('data-theme', name);
+    document.title = name === 'tuna' ? 'No Kapu Tuna' : 'No Kapu Tuner';
+    readPalette();
+    var bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta && bg) meta.setAttribute('content', bg);
+    qsa('#palettes button').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-theme-choice') === name));
     });
-    el.strings.appendChild(b);
-  });
-  markStrings(null);
-}
-function markStrings(activeIdx) {
-  const kids = el.strings.children;
-  for (let i = 0; i < kids.length; i++) {
-    const locked = state.lockedIndex === i;
-    kids[i].classList.toggle('locked', locked);
-    kids[i].classList.toggle('target', locked || activeIdx === i);
-    kids[i].setAttribute('aria-pressed', String(locked));
+    store('theme', name);
   }
-}
-function updateHint() {
-  const names = currentStrings();
-  if (!names) { el.hint.textContent = ''; return; }
-  el.hint.textContent = state.lockedIndex === null
-    ? 'Auto-detect · tap a string to lock it'
-    : 'Locked to ' + names[state.lockedIndex] + ' · tap it again for auto';
-}
 
-/* ---------- Picker sheet ---------- */
-let sheetTrigger = null;
-function openSheet(kind, trigger) {
-  sheetTrigger = trigger;
-  el.sheetTitle.textContent = kind === 'inst' ? 'Instrument' : 'Tuning';
-  el.sheetList.innerHTML = '';
-  const entries = kind === 'inst'
-    ? Object.keys(INSTRUMENTS).map(k => [k, INSTRUMENTS[k].label, k === state.inst])
-    : Object.keys(INSTRUMENTS[state.inst].tunings).map(k => [k, INSTRUMENTS[state.inst].tunings[k].label, k === state.tuning]);
-  entries.forEach(([key, label, selected]) => {
-    const b = document.createElement('button');
-    b.className = 'opt'; b.type = 'button';
-    b.setAttribute('aria-pressed', String(selected));
-    const span = document.createElement('span'); span.textContent = label; b.appendChild(span);
-    if (selected) b.insertAdjacentHTML('beforeend', '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>');
-    b.addEventListener('click', () => { closeSheet(); if (kind === 'inst') setInstrument(key); else setTuning(key); });
-    el.sheetList.appendChild(b);
-  });
-  el.sheet.hidden = false;
-  (el.sheetList.querySelector('[aria-pressed="true"]') || el.sheetList.firstChild).focus();
-}
-function closeSheet() {
-  el.sheet.hidden = true;
-  if (sheetTrigger) sheetTrigger.focus();
-}
-
-/* ---------- Settings controls ---------- */
-function setRef(v) {
-  state.ref = Math.min(REF_MAX, Math.max(REF_MIN, v));
-  save('ref', state.ref);
-  el.refVal.textContent = 'A4 = ' + state.ref + ' Hz';
-  rebuildDetector(); resetReading();
-}
-function setMuted(m) {
-  state.muted = m;
-  save('muted', m);
-  el.chime.setAttribute('aria-checked', String(!m));
-}
-function resetReading() {
-  history = []; lastReading = null; lastSignalAt = -Infinity;
-  gate = createChimeGate();
-  render(null);
-}
-
-/* ---------- Rendering ---------- */
-const DEG_PER_CENT = 90 / METER_RANGE_CENTS;       // half circle spans ±METER_RANGE_CENTS
-function render(r) {
-  if (!r) {
-    el.app.dataset.state = 'idle';
-    el.letter.textContent = '–'; el.sharp.textContent = ''; el.oct.textContent = '';
-    el.status.textContent = state.running ? 'PLAY A NOTE' : '';
-    el.needle.style.transform = 'rotate(0deg)';
-    el.hz.textContent = '—'; el.tgt.textContent = 'target —'; el.cents.textContent = '—';
-    markStrings(null);
-    return;
-  }
-  const c = Math.round(r.cents);               // state is judged on the number you see
-  const inTune = Math.abs(c) <= IN_TUNE_CENTS;
-  el.app.dataset.state = inTune ? 'on' : 'off';
-  el.letter.textContent = r.letter;
-  el.sharp.textContent = r.sharp ? '♯' : '';
-  el.oct.textContent = r.octave;
-  el.status.textContent = inTune ? 'IN TUNE' : (c < 0 ? 'FLAT' : 'SHARP');
-  const clamped = Math.max(-METER_RANGE_CENTS, Math.min(METER_RANGE_CENTS, r.cents));
-  el.needle.style.transform = 'rotate(' + (clamped * DEG_PER_CENT).toFixed(1) + 'deg)';
-  el.hz.textContent = Math.round(r.freq);
-  el.tgt.textContent = 'target ' + r.targetHz.toFixed(1);
-  el.cents.textContent = (c > 0 ? '+' : c < 0 ? '−' : '') + Math.abs(c);
-  markStrings(r.index >= 0 ? r.index : null);
-}
-/* ---------- Microphone help ----------
-   A web page cannot switch the microphone on by itself, and it cannot open the Settings app.
-   The system asks ONCE, when you tap Start tuning. If it was ever answered "Don't Allow", the only
-   fix is to reset it, so say exactly where, for the device you are on. */
-const IS_IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-const IS_ANDROID = /Android/.test(navigator.userAgent);
-function deniedHelp() {
-  if (IS_IOS) return 'The microphone is turned off for No Kapu.\n\nFix it in the iPhone Settings app:\n1. Settings, then Apps, then Safari.\n2. Tap Microphone.\n3. Choose Ask or Allow (not Deny).\n4. Close this app completely, reopen it, and tap Start tuning.\n5. When iPhone asks, tap Allow.';
-  if (IS_ANDROID) return 'The microphone is turned off for No Kapu.\n\nOpen Settings, then Apps, then this app or Chrome, then Permissions, then Microphone, and choose Allow. Come back and tap Start tuning.';
-  return 'The microphone is blocked for this site.\n\nClick the lock icon beside the address bar, set Microphone to Allow, reload the page, and tap Start tuning.';
-}
-function showMsg(text) { el.msg.textContent = text; el.msg.classList.add('show'); }
-function clearMsg() { el.msg.textContent = ''; el.msg.classList.remove('show'); }
-
-/* ---------- Chime (two soft sine notes, no audio files) ---------- */
-function playChime() {
-  const t0 = audioCtx.currentTime + 0.01;
-  [[880, 0], [1174.66, 0.13]].forEach(([f, dt]) => {
-    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-    o.type = 'sine'; o.frequency.value = f;
-    g.gain.setValueAtTime(0.0001, t0 + dt);
-    g.gain.exponentialRampToValueAtTime(0.35, t0 + dt + 0.015);
-    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dt + 0.17);
-    o.connect(g); g.connect(audioCtx.destination);
-    o.start(t0 + dt); o.stop(t0 + dt + 0.18);
-  });
-}
-
-/* ---------- Wake lock (keeps the screen on while tuning) ---------- */
-async function acquireWake() {
-  try {
-    if ('wakeLock' in navigator && !wakeLock) {
-      wakeLock = await navigator.wakeLock.request('screen');
-      wakeLock.addEventListener('release', () => { wakeLock = null; });
-    }
-  } catch (e) { /* not supported or denied: tuner still works */ }
-}
-function releaseWake() { try { if (wakeLock) wakeLock.release(); } catch (e) {} wakeLock = null; }
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && state.running) {
-    acquireWake();
-    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-  }
-});
-
-/* ---------- Main detection loop ---------- */
-function loop() {
-  rafId = requestAnimationFrame(loop);
-  const now = performance.now();
-  if (now - lastFrameAt < FRAME_MS) return;
-  lastFrameAt = now;
-  if (state.view !== 'tuner') return;          // settings open: don't analyse or chime
-  if (now < pausedUntil) return;               // chime playing: don't listen to ourselves
-
-  analyser.getFloatTimeDomainData(buf);
-  const level = rms(buf);
-  const thr = (now - lastSignalAt < SILENCE_HOLD_MS) ? MIN_RMS * 0.6 : MIN_RMS;  // lower bar while a note decays
-  const got = level >= thr ? yin(buf, audioCtx.sampleRate, det.minHz, det.maxHz, det.preferHz) : null;
-
-  if (got) {
-    lastSignalAt = now;
-    history.push(got.freq);
-    if (history.length > MEDIAN_FRAMES) history.shift();
-    const r = evaluate(median(history), det, state.lockedIndex);
-    lastReading = r;
-    render(r);
-    const fire = gate.update(now, Math.round(r.cents), r.key);
-    if (fire && !state.muted) {
-      playChime();
-      pausedUntil = now + CHIME_PAUSE_MS;
-      lastSignalAt = pausedUntil;
-      history = [];
-    }
-  } else {
-    gate.update(now, null, null);
-    if (now - lastSignalAt > SILENCE_HOLD_MS) {
-      history = [];
-      if (lastReading) { lastReading = null; render(null); }
-    }
-  }
-}
-
-/* ---------- Start / stop ---------- */
-async function start() {
-  clearMsg();
-  if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    showMsg('The microphone needs a secure page. Open this tuner from an https:// address (not a file or plain http link), then tap Start again.');
-    return;
-  }
-  try {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    audioCtx.resume();                          // created inside the tap, as iOS Safari requires
-    stream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 },
+  function paintSpelling() {
+    qsa('#spelling button').forEach(function (b) {
+      b.setAttribute('aria-pressed', String((b.getAttribute('data-spell') === 'flat') === state.flats));
     });
-    source = audioCtx.createMediaStreamSource(stream);
-    analyser = audioCtx.createAnalyser();
-    analyser.fftSize = FFT_SIZE;
-    analyser.smoothingTimeConstant = 0;
-    source.connect(analyser);                   // NOT connected to speakers
-    buf = new Float32Array(analyser.fftSize);
-    stream.getAudioTracks().forEach(t => t.addEventListener('ended', () => {
-      if (state.running) { stop(); showMsg('The microphone was disconnected. Reconnect it and tap Start tuning.'); }
-    }));
-  } catch (err) {
-    cleanupAudio();
-    const n = err && err.name;
-    if (n === 'NotAllowedError' || n === 'SecurityError' || n === 'PermissionDeniedError') {
-      showMsg(deniedHelp());
-    } else if (n === 'NotFoundError' || n === 'DevicesNotFoundError' || n === 'OverconstrainedError') {
-      showMsg('No microphone was found. Plug in or enable a microphone, then tap Start tuning again.');
-    } else if (n === 'NotReadableError' || n === 'TrackStartError') {
-      showMsg('The microphone is busy. Close other apps or tabs that are using it, then tap Start tuning again.');
+  }
+  function paintChime() { $('chimeSwitch').setAttribute('aria-checked', String(state.chime)); }
+  function paintA4() { $('a4Val').textContent = 'A = ' + state.a4 + ' Hz'; }
+
+  function buildTunings() {
+    var box = $('tunings');
+    box.textContent = '';
+    Object.keys(C.TUNINGS).forEach(function (key) {
+      var t = C.TUNINGS[key];
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'opt'; b.setAttribute('role', 'radio');
+      b.setAttribute('data-tuning', key);
+      b.setAttribute('aria-checked', String(state.tuning === key));
+      var left = document.createElement('span'); left.textContent = t.label;
+      var small = document.createElement('small'); small.textContent = t.hint;
+      left.appendChild(document.createElement('br')); left.appendChild(small);
+      var chk = document.createElement('span'); chk.className = 'chk'; chk.textContent = '✓';
+      b.appendChild(left); b.appendChild(chk);
+      b.addEventListener('click', function () {
+        state.tuning = key; store('tuning', key);
+        qsa('#tunings .opt').forEach(function (o) { o.setAttribute('aria-checked', String(o === b)); });
+        state.locked = null; resetReadings();
+        if (state.mode === 'guitar') { renderStrings(); showIdle(); }
+      });
+      box.appendChild(b);
+    });
+  }
+
+  /* ---------- scale ticks ---------- */
+  (function buildScale() {
+    var scale = $('scale');
+    for (var c = -50; c <= 50; c += 10) {
+      var t = document.createElement('div');
+      t.className = 'tick' + (c === 0 ? ' mid' : (c % 50 === 0 ? ' major' : ''));
+      t.style.left = (50 + c) + '%';
+      scale.insertBefore(t, $('needle'));
+    }
+  })();
+
+  /* ---------- note labels ---------- */
+  function setNoteLabel(el, midi, octClass) {
+    var p = C.midiToParts(midi, state.flats);
+    el.textContent = '';
+    el.appendChild(document.createTextNode(p.name.charAt(0)));
+    if (p.name.length > 1) {
+      var acc = document.createElement('span'); acc.className = 'acc'; acc.textContent = p.name.charAt(1);
+      el.appendChild(acc);
+    }
+    var o = document.createElement(octClass ? 'span' : 'small'); if (octClass) o.className = octClass;
+    o.textContent = p.octave;
+    el.appendChild(o);
+    return p;
+  }
+
+  /* ---------- chromatic ruler ---------- */
+  var rulerEl = $('ruler'), rtrack = $('rtrack');
+  var rulerItems = [];
+  var lastRulerMidi = 60, rulerCur = -1, rulerTarget = null, rulerUserUntil = 0, rulerTouching = false;
+
+  function buildRuler() {
+    rtrack.textContent = '';
+    rulerItems = [];
+    for (var m = MIDI_LO; m <= MIDI_HI; m++) {
+      var d = document.createElement('div');
+      d.className = 'rn' + (m % 12 === 0 ? ' c' : '');
+      d.setAttribute('data-midi', m);
+      var l = document.createElement('span'); l.className = 'l';
+      var tk = document.createElement('i'); tk.className = 'tk';
+      d.appendChild(l); d.appendChild(tk);
+      rtrack.appendChild(d);
+      rulerItems.push(d);
+    }
+    labelRuler();
+  }
+  function labelRuler() {
+    rulerItems.forEach(function (d) { setNoteLabel(d.firstChild, parseInt(d.getAttribute('data-midi'), 10), null); });
+  }
+  function rulerLeftFor(midi) { return (midi - MIDI_LO) * RN_W; }
+  function rulerMidiAtCenter() {
+    var idx = Math.max(0, Math.min(rulerItems.length - 1, Math.round(rulerEl.scrollLeft / RN_W)));
+    return MIDI_LO + idx;
+  }
+  function markRulerCurrent() {
+    var idx = Math.max(0, Math.min(rulerItems.length - 1, Math.round(rulerEl.scrollLeft / RN_W)));
+    if (idx === rulerCur) return;
+    if (rulerCur >= 0) rulerItems[rulerCur].classList.remove('cur');
+    rulerItems[idx].classList.add('cur');
+    rulerCur = idx;
+    // While nothing is playing, the big (ghost) note follows whatever the user scrolls to.
+    if (state.mode === 'chromatic' && !showing) paintGhost();
+  }
+  rulerEl.addEventListener('scroll', markRulerCurrent, { passive: true });
+  ['pointerdown', 'touchstart', 'wheel'].forEach(function (t) {
+    rulerEl.addEventListener(t, function () { rulerUserUntil = performance.now() + USER_HOLD_MS; rulerTarget = null; }, { passive: true });
+  });
+  function setRulerMidi(midi, instant) {
+    if (state.mode !== 'chromatic') return;
+    midi = Math.max(MIDI_LO, Math.min(MIDI_HI, midi));
+    lastRulerMidi = midi;
+    rulerTarget = rulerLeftFor(midi);
+    if (instant) { rulerEl.scrollLeft = rulerTarget; rulerTarget = null; markRulerCurrent(); }
+  }
+  function stepRuler() {
+    if (rulerTarget === null || state.mode !== 'chromatic') return;
+    if (performance.now() < rulerUserUntil) return;
+    var diff = rulerTarget - rulerEl.scrollLeft;
+    if (Math.abs(diff) < 1) { rulerEl.scrollLeft = rulerTarget; rulerTarget = null; return; }
+    rulerEl.scrollLeft += diff * 0.2 + (diff > 0 ? 0.5 : -0.5);
+  }
+  function rulerPhase(now) {
+    var phase = '';
+    if (state.mode === 'chromatic' && heardOnce && now >= rulerUserUntil) {
+      if (showing) { if (wasGood) phase = 'solo'; }
+      else {
+        var silent = now - lastHeard;
+        if (silent > GONE_AFTER_MS) phase = 'gone';
+        else if (silent > SOLO_AFTER_MS) phase = 'solo';
+      }
+    }
+    rulerEl.classList.toggle('solo', phase === 'solo');
+    rulerEl.classList.toggle('gone', phase === 'gone');
+  }
+  var uiRaf = 0;
+  function uiLoop() {
+    uiRaf = requestAnimationFrame(uiLoop);
+    stepRuler();
+    rulerPhase(performance.now());
+  }
+
+  /* ---------- guitar / ukulele strings ---------- */
+  var stringsEl = $('strings'), stringBtns = [];
+  function currentStrings() {
+    if (state.mode === 'guitar') return C.TUNINGS[state.tuning].strings;
+    if (state.mode === 'ukulele') return C.INSTRUMENTS.ukulele.strings;
+    return null;
+  }
+  function renderStrings() {
+    stringsEl.textContent = '';
+    stringBtns = [];
+    var list = currentStrings();
+    stringsEl.hidden = !list;
+    rulerEl.hidden = !!list;
+    if (!list) return;
+    list.forEach(function (midi, i) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'gs';
+      b.setAttribute('aria-pressed', 'false');
+      var p = C.midiToParts(midi, state.flats);
+      b.setAttribute('aria-label', 'Lock to string ' + p.name + p.octave);
+      var l = document.createElement('span'); l.className = 'l'; setNoteLabel(l, midi, null);
+      var ln = document.createElement('i'); ln.className = 'ln';
+      b.appendChild(l); b.appendChild(ln);
+      b.addEventListener('click', function () {
+        state.locked = state.locked === i ? null : i;
+        resetReadings();
+        paintStrings(null);
+      });
+      stringsEl.appendChild(b);
+      stringBtns.push(b);
+    });
+    paintStrings(null);
+  }
+  function paintStrings(activeIdx) {
+    stringBtns.forEach(function (b, i) {
+      b.setAttribute('aria-pressed', String(state.locked === i));
+      b.classList.toggle('active', activeIdx === i);
+    });
+  }
+
+  /* ---------- mode picker (flick to choose) ---------- */
+  var modesEl = $('modes'), modeBtns = qsa('#modes button');
+  var MODE_ORDER = ['guitar', 'ukulele', 'chromatic'];
+  var dragTimer = 0, settleTimer = 0, modeProgrammatic = false;
+
+  function paintModes() {
+    modeBtns.forEach(function (b) { b.setAttribute('aria-checked', String(b.getAttribute('data-mode') === state.mode)); });
+  }
+  function scrollModes(mode, smooth) {
+    var left = MODE_ORDER.indexOf(mode) * MODE_W;
+    modeProgrammatic = true;
+    if (smooth && modesEl.scrollTo) modesEl.scrollTo({ left: left, behavior: 'smooth' });
+    else modesEl.scrollLeft = left;
+    setTimeout(function () { modeProgrammatic = false; }, smooth ? 450 : 50);
+  }
+  function showNeighbors() {
+    modesEl.classList.add('dragging');
+    clearTimeout(dragTimer);
+    dragTimer = setTimeout(function () { modesEl.classList.remove('dragging'); }, 1100);
+  }
+  modesEl.addEventListener('scroll', function () {
+    if (modeProgrammatic) return;
+    showNeighbors();
+    clearTimeout(settleTimer);
+    settleTimer = setTimeout(function () {
+      if (modeProgrammatic) return;
+      var idx = Math.max(0, Math.min(2, Math.round(modesEl.scrollLeft / MODE_W)));
+      if (MODE_ORDER[idx] !== state.mode) setMode(MODE_ORDER[idx], false);
+    }, 110);
+  }, { passive: true });
+  ['pointerdown', 'touchstart'].forEach(function (t) { modesEl.addEventListener(t, showNeighbors, { passive: true }); });
+  modeBtns.forEach(function (b) {
+    b.addEventListener('click', function () {
+      var m = b.getAttribute('data-mode');
+      if (m !== state.mode) { setMode(m, true); showNeighbors(); }
+    });
+  });
+  modesEl.addEventListener('keydown', function (e) {
+    var i = MODE_ORDER.indexOf(state.mode);
+    if (e.key === 'ArrowRight' && i < 2) { setMode(MODE_ORDER[i + 1], true); showNeighbors(); e.preventDefault(); }
+    if (e.key === 'ArrowLeft' && i > 0) { setMode(MODE_ORDER[i - 1], true); showNeighbors(); e.preventDefault(); }
+  });
+
+  function setMode(mode, scroll) {
+    clearTimeout(settleTimer);
+    state.mode = mode;
+    state.locked = null;
+    store('mode', mode);
+    paintModes();
+    if (scroll) scrollModes(mode, true);
+    resetReadings();
+    renderStrings();
+    if (mode === 'chromatic') {
+      rulerEl.hidden = false;
+      setRulerMidi(lastRulerMidi, true);
+    }
+    showIdle();
+  }
+
+  /* ---------- readings: smoothing + outlier rejection ---------- */
+  var hist = [], pending = [];
+  var inTuneCount = 0, lastHeard = 0, wasGood = false;
+  var showing = false, heardOnce = false;
+  var chimeArmed = true, muteUntil = 0;
+
+  function resetReadings() { hist = []; pending = []; inTuneCount = 0; wasGood = false; }
+
+  function accept(midiF) {
+    if (!hist.length) { hist.push(midiF); return true; }
+    if (Math.abs(midiF - C.median(hist)) <= 0.7) {
+      hist.push(midiF);
+      if (hist.length > 5) hist.shift();
+      pending = [];
+      return true;
+    }
+    pending.push(midiF);
+    if (pending.length > 3) pending.shift();
+    if (pending.length === 3 && Math.max.apply(null, pending) - Math.min.apply(null, pending) < 0.5) {
+      hist = pending.slice();
+      pending = [];
+      inTuneCount = 0;
+      return true;
+    }
+    return false;
+  }
+
+  /* ---------- rendering ---------- */
+  var noteEl = $('note'), needleEl = $('needle'), centsEl = $('centsTxt'), hzEl = $('hzTxt');
+  var flatEl = $('flatInd'), sharpEl = $('sharpInd'), statusEl = $('status');
+
+  function setState(s) { appEl.setAttribute('data-state', s); }
+
+  function ghostMidi() {
+    var list = currentStrings();
+    if (list) return list[0];
+    return rulerItems.length ? rulerMidiAtCenter() : 60;
+  }
+  function paintGhost() {
+    setNoteLabel(noteEl, ghostMidi(), 'oct');
+    noteEl.style.color = '';
+    centsEl.style.color = '';
+    centsEl.textContent = '0';
+    hzEl.textContent = '000.0 Hz';
+    hzEl.classList.add('ghost');
+  }
+
+  function showIdle() {
+    setState('idle');
+    paintGhost();
+    needleEl.style.left = '50%';
+    flatEl.classList.remove('lit'); sharpEl.classList.remove('lit');
+    flatEl.style.color = ''; sharpEl.style.color = '';
+    paintStrings(null);
+    if (wasGood) statusEl.textContent = '';
+    wasGood = false;
+    showing = false;
+  }
+
+  function render(freq) {
+    var a4 = state.a4;
+    var list = currentStrings();
+    var midi, cents, strIdx = null;
+
+    if (list) {
+      strIdx = state.locked !== null ? state.locked : C.nearestString(freq, list, a4).index;
+      midi = list[strIdx];
+      cents = C.centsBetween(freq, C.midiToFreq(midi, a4));
     } else {
-      showMsg('Could not start the microphone (' + (n || 'unknown error') + '). Reload the page and try again.');
+      var n = C.freqToNote(freq, a4);
+      midi = n.midi; cents = n.cents;
     }
-    return;
+
+    inTuneCount = Math.abs(cents) <= IN_TUNE_CENTS ? inTuneCount + 1 : 0;
+    var good = inTuneCount >= IN_TUNE_FRAMES;
+
+    setNoteLabel(noteEl, midi, 'oct');
+    var st = good ? 'on' : 'off';
+    setState(st);
+    var col = good ? '' : offColor(cents);
+    noteEl.style.color = col;
+    centsEl.style.color = col;
+
+    var rounded = Math.round(cents);
+    centsEl.textContent = (rounded > 0 ? '+' : rounded < 0 ? '−' : '') + Math.abs(rounded);
+    hzEl.textContent = freq.toFixed(1) + ' Hz';
+    hzEl.classList.remove('ghost');
+
+    var clamped = Math.max(-50, Math.min(50, cents));
+    needleEl.style.left = (50 + clamped) + '%';
+
+    // ♭ lights when you are flat, ♯ when sharp, both together when in tune.
+    flatEl.classList.toggle('lit', good || cents < -IN_TUNE_CENTS);
+    sharpEl.classList.toggle('lit', good || cents > IN_TUNE_CENTS);
+    flatEl.style.color = good ? '' : (cents < -IN_TUNE_CENTS ? col : '');
+    sharpEl.style.color = good ? '' : (cents > IN_TUNE_CENTS ? col : '');
+
+    paintStrings(strIdx);
+    if (state.mode === 'chromatic') setRulerMidi(midi, false);
+
+    if (good && !wasGood) {
+      statusEl.textContent = 'In tune';
+      if (chimeArmed) { playChime(); chimeArmed = false; }
+    }
+    if (!good && wasGood) statusEl.textContent = '';
+    if (Math.abs(cents) > 12) chimeArmed = true;
+    wasGood = good;
+    showing = true;
   }
-  state.running = true;
-  lastFrameAt = 0; pausedUntil = 0;
-  setView('tuner');
-  acquireWake();
-  rafId = requestAnimationFrame(loop);
-}
-function cleanupAudio() {
-  try { if (stream) stream.getTracks().forEach(t => t.stop()); } catch (e) {}
-  try { if (source) source.disconnect(); } catch (e) {}
-  try { if (audioCtx && audioCtx.state !== 'closed') audioCtx.close(); } catch (e) {}
-  stream = source = analyser = audioCtx = null;
-}
-function stop() {
-  cancelAnimationFrame(rafId);
-  state.running = false;
-  cleanupAudio();
-  releaseWake();
-  setView('home');
-  resetReading();
-}
 
-/* ---------- Wire up ---------- */
-// in-tune zone on the gauge, drawn from the single IN_TUNE_CENTS constant
-(function drawZone() {
-  const a = IN_TUNE_CENTS * DEG_PER_CENT * Math.PI / 180, R = 150, cx = 180, cy = 190;
-  const x1 = (cx - R * Math.sin(a)).toFixed(2), x2 = (cx + R * Math.sin(a)).toFixed(2), y = (cy - R * Math.cos(a)).toFixed(2);
-  el.zone.setAttribute('d', 'M' + x1 + ' ' + y + ' A' + R + ' ' + R + ' 0 0 1 ' + x2 + ' ' + y);
-  el.tolNote.textContent = 'In tune means within ±' + IN_TUNE_CENTS + ' cents.';
-})();
+  /* ---------- chime ---------- */
+  function playChime() {
+    if (!state.chime || !ctx || ctx.state !== 'running') return;
+    try {
+      var t0 = ctx.currentTime + 0.01;
+      [[880, 0], [1318.5, 0.11]].forEach(function (pair) {
+        var o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = 'sine'; o.frequency.value = pair[0];
+        var s = t0 + pair[1];
+        g.gain.setValueAtTime(0.0001, s);
+        g.gain.exponentialRampToValueAtTime(0.12, s + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, s + 0.9);
+        o.connect(g); g.connect(ctx.destination);
+        o.start(s); o.stop(s + 0.95);
+      });
+      muteUntil = performance.now() + 1500;   // do not let the tuner hear its own chime
+    } catch (e) { /* audio output unavailable */ }
+  }
 
-// If the microphone was already refused earlier, say so up front instead of after a tap.
-try {
-  navigator.permissions && navigator.permissions.query({ name: 'microphone' }).then(p => {
-    if (p.state === 'denied') showMsg(deniedHelp());
-    p.onchange = () => { if (p.state !== 'denied') clearMsg(); };
-  }).catch(() => {});
-} catch (e) {}
-el.start.addEventListener('click', start);
-el.stop.addEventListener('click', stop);
-el.gear.addEventListener('click', () => setView('settings'));
-el.homeSettings.addEventListener('click', () => setView('settings'));
-el.settingsBack.addEventListener('click', () => setView(state.prevView));
-el.instBtn.addEventListener('click', () => openSheet('inst', el.instBtn));
-el.tuningBtn.addEventListener('click', () => openSheet('tuning', el.tuningBtn));
-el.sheetCancel.addEventListener('click', closeSheet);
-el.sheet.addEventListener('click', e => { if (e.target === el.sheet) closeSheet(); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && !el.sheet.hidden) closeSheet(); });
-el.refDown.addEventListener('click', () => setRef(state.ref - 1));
-el.refUp.addEventListener('click', () => setRef(state.ref + 1));
-el.chime.addEventListener('click', () => setMuted(!state.muted));
-document.querySelectorAll('[data-theme-pick]').forEach(b => b.addEventListener('click', () => applyTheme(b.dataset.themePick)));
+  /* ---------- audio ---------- */
+  var ctx = null, stream = null, analyser = null, buf = null, bytes = null;
+  var running = false, raf = 0, lastRun = 0;
 
-applyTheme(state.theme); updateSelectors(); buildStrings(); updateHint(); setMuted(state.muted); setRef(state.ref); render(null);
+  function readSamples() {
+    if (analyser.getFloatTimeDomainData) analyser.getFloatTimeDomainData(buf);
+    else {
+      analyser.getByteTimeDomainData(bytes);
+      for (var i = 0; i < bytes.length; i++) buf[i] = (bytes[i] - 128) / 128;
+    }
+  }
 
-/* ---------- Offline: the service worker (sw.js) caches every file of the app on first visit ---------- */
-if ('serviceWorker' in navigator && window.isSecureContext) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(() => { /* still works online without it */ });
+  function onFrame() {
+    var now = performance.now();
+    if (now < muteUntil) { lastHeard = Math.max(lastHeard, now - 100); return; }
+    readSamples();
+    var r = C.detectPitch(buf, ctx.sampleRate);
+    if (r) {
+      var midiF = 69 + 12 * Math.log(r.freq / state.a4) / Math.LN2;
+      var list = currentStrings();
+      // Guitar/ukulele: a pitch more than 3 semitones from every string isn't one of ours; ignore it.
+      var stray = list && state.locked === null && Math.abs(C.nearestString(r.freq, list, state.a4).cents) > 300;
+      if (!stray && accept(midiF)) {
+        lastHeard = now; heardOnce = true;
+        render(state.a4 * Math.pow(2, (C.median(hist) - 69) / 12));
+      }
+    }
+    if (showing && now - lastHeard > IDLE_AFTER_MS) { resetReadings(); showIdle(); }
+  }
+
+  function loop(t) {
+    if (!running) return;
+    raf = requestAnimationFrame(loop);
+    if (t - lastRun < FRAME_MS) return;
+    lastRun = t;
+    onFrame();
+  }
+  function startLoop() { if (running) return; running = true; raf = requestAnimationFrame(loop); }
+  function stopLoop() { running = false; cancelAnimationFrame(raf); }
+
+  function startAudio() {
+    if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return Promise.reject({ name: 'Insecure' });
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return Promise.reject({ name: 'Insecure' });
+    ctx = new AC();   // created inside the tap so iOS allows audio
+    return navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+    }).then(function (s) {
+      stream = s;
+      return ctx.resume();
+    }).then(function () {
+      var src = ctx.createMediaStreamSource(stream);
+      analyser = ctx.createAnalyser();
+      analyser.fftSize = 4096;
+      analyser.smoothingTimeConstant = 0;
+      src.connect(analyser);   // never connected to the speakers, so no feedback
+      buf = new Float32Array(analyser.fftSize);
+      bytes = new Uint8Array(analyser.fftSize);
+      var track = stream.getAudioTracks()[0];
+      if (track) track.addEventListener('ended', function () { stopAudio('The microphone stopped. Tap to start again.'); });
+    });
+  }
+
+  function stopAudio(message) {
+    stopLoop();
+    cancelAnimationFrame(uiRaf);
+    releaseWake();
+    if (stream) stream.getTracks().forEach(function (t) { t.stop(); });
+    if (ctx && ctx.close) ctx.close().catch(function () {});
+    stream = null; ctx = null; analyser = null;
+    resetReadings();
+    show('start');
+    $('startMsg').textContent = message || '';
+  }
+
+  function friendlyError(err) {
+    var name = err && err.name;
+    if (name === 'Insecure') return 'This app needs a secure (https) connection to use the microphone.';
+    if (name === 'NotAllowedError' || name === 'SecurityError') return 'Microphone access is blocked. Allow it for this site in your browser settings, then tap again.';
+    if (name === 'NotFoundError' || name === 'OverconstrainedError') return 'No microphone found.';
+    return 'Could not start the microphone. Tap to try again.';
+  }
+
+  /* ---------- keep the screen on while tuning ---------- */
+  var wake = null;
+  function requestWake() {
+    try {
+      if (!('wakeLock' in navigator)) return;
+      navigator.wakeLock.request('screen').then(function (lock) {
+        wake = lock;
+        lock.addEventListener('release', function () { if (wake === lock) wake = null; });
+      }).catch(function () {});
+    } catch (e) { /* not supported */ }
+  }
+  function releaseWake() { if (wake) { wake.release().catch(function () {}); wake = null; } }
+
+  /* ---------- screens ---------- */
+  function show(name) {
+    $('start').hidden = name !== 'start';
+    $('tuner').hidden = name !== 'tuner';
+    $('settings').hidden = name !== 'settings';
+    if (name === 'tuner') { scrollModes(state.mode, false); markRulerCurrent(); }
+  }
+
+  var starting = false;
+  function begin() {
+    if (starting) return;
+    starting = true;
+    $('startMsg').textContent = '';
+    startAudio().then(function () {
+      show('tuner');
+      lastHeard = performance.now();
+      setMode(state.mode, false);
+      scrollModes(state.mode, false);
+      requestWake();
+      startLoop();
+      cancelAnimationFrame(uiRaf); uiLoop();
+    }).catch(function (err) {
+      if (ctx && ctx.close) ctx.close().catch(function () {});
+      ctx = null;
+      $('startMsg').textContent = friendlyError(err);
+    }).then(function () { starting = false; });
+  }
+  $('start').addEventListener('click', begin);
+  $('start').addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); begin(); } });
+
+  /* ---------- wiring ---------- */
+  qsa('#palettes button').forEach(function (b) {
+    b.addEventListener('click', function () { chooseTheme(b.getAttribute('data-theme-choice')); });
   });
-}
+  qsa('#spelling button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      state.flats = b.getAttribute('data-spell') === 'flat';
+      store('flats', state.flats ? '1' : '0');
+      paintSpelling(); labelRuler(); renderStrings();
+      if (showing) { /* next frame repaints the note */ } else paintGhost();
+    });
+  });
+  $('chimeSwitch').addEventListener('click', function () {
+    state.chime = !state.chime; store('chime', state.chime ? '1' : '0'); paintChime();
+    if (state.chime) { chimeArmed = false; playChime(); }
+  });
+  function changeA4(d) {
+    var next = Math.max(A4_MIN, Math.min(A4_MAX, state.a4 + d));
+    if (next === state.a4) return;
+    state.a4 = next; store('a4', next); resetReadings(); paintA4();
+  }
+  $('a4Down').addEventListener('click', function () { changeA4(-1); });
+  $('a4Up').addEventListener('click', function () { changeA4(1); });
+  $('openSettings').addEventListener('click', function () { show('settings'); $('closeSettings').focus(); });
+  $('closeSettings').addEventListener('click', function () { show('tuner'); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('settings').hidden) show('tuner'); });
+
+  document.addEventListener('visibilitychange', function () {
+    if (!ctx) return;
+    if (document.hidden) { stopLoop(); releaseWake(); ctx.suspend().catch(function () {}); }
+    else {
+      ctx.resume().catch(function () {}).then(function () { lastHeard = performance.now(); startLoop(); requestWake(); });
+    }
+  });
+  document.addEventListener('pointerdown', function () {
+    if (ctx && ctx.state === 'suspended' && !document.hidden) ctx.resume().catch(function () {});
+  });
+
+  /* ---------- init ---------- */
+  buildRuler();
+  buildTunings();
+  applyTheme(state.theme);
+  paintSpelling(); paintChime(); paintA4(); paintModes();
+  renderStrings();
+  setRulerMidi(60, true);
+  paintGhost();
+
+  if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
+    window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
+  }
+})();
 </script>
 </body>
 </html>
