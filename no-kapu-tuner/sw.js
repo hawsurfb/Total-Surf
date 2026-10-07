@@ -1,5 +1,5 @@
 /* No Kapu Tuner — service worker. Caches the app shell so it works fully offline. */
-var CACHE = 'nokapu-v5';
+var CACHE = 'nokapu-v6';
 var SHELL = [
   './',
   'index.html',
@@ -48,10 +48,11 @@ self.addEventListener('fetch', function (event) {
       var refresh = fetch(req).then(function (res) {
         if (res && res.ok) {
           var copy = res.clone();
-          caches.open(CACHE).then(function (cache) { cache.put(req, copy); });
+          return caches.open(CACHE).then(function (cache) { return cache.put(req, copy); }).then(function () { return res; });
         }
         return res;
       }).catch(function () { return cached; });
+      event.waitUntil(refresh.catch(function () {}));   // let the background refresh finish
       return cached || refresh;
     })
   );

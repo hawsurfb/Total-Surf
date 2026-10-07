@@ -115,6 +115,7 @@
   .hz { font-size: 19px; letter-spacing: .02em; font-variant-numeric: tabular-nums; color: var(--dim); text-align: center; min-width: 8ch; }
   .hz.ghost { color: var(--idle); opacity: .7; }
 
+.resume-hint { margin: 0; text-align: center; font-size: 14px; color: var(--accent); }
   .readout { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; position: relative; }
   .note-wrap { display: flex; justify-content: center; align-items: baseline; }
   .note {
@@ -182,7 +183,7 @@
   .group > h3 { margin: 0 0 10px; font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
   .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; font-size: 17px; }
   .seg { display: flex; gap: 2px; padding: 3px; border-radius: 12px; background: var(--panel); }
-  .seg button { min-height: 38px; padding: 6px 14px; border-radius: 9px; color: var(--dim); font-size: 15px; }
+  .seg button { min-height: 44px; padding: 6px 14px; border-radius: 9px; color: var(--dim); font-size: 15px; }
   .seg button[aria-pressed="true"] { background: var(--line); color: var(--text); }
   .palettes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .pal { padding: 12px; border-radius: 14px; border: 2px solid var(--line); text-align: left; display: flex; flex-direction: column; gap: 10px; }
@@ -191,13 +192,14 @@
   .pal .sw i { width: 22px; height: 22px; border-radius: 50%; display: block; border: 1px solid rgba(255,255,255,.12); }
   .pal span { font-size: 16px; }
   .stepper { display: flex; align-items: center; gap: 12px; font-variant-numeric: tabular-nums; }
-  .stepper button { width: 42px; height: 42px; border-radius: 50%; border: 1.5px solid var(--line); font-size: 22px; line-height: 1; }
+  .stepper button { width: 44px; height: 44px; border-radius: 50%; border: 1.5px solid var(--line); font-size: 22px; line-height: 1; }
   .opts { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
   .opt { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 54px; text-align: left; border-bottom: 1px solid var(--line); font-size: 17px; }
   .opt small { color: var(--dim); font-size: 13px; letter-spacing: .04em; }
   .opt .chk { width: 20px; height: 20px; color: var(--accent); opacity: 0; }
   .opt[aria-checked="true"] .chk { opacity: 1; }
   .switch { position: relative; width: 56px; height: 32px; border-radius: 16px; background: var(--line); transition: background .15s; flex: none; }
+  .switch::before { content: ""; position: absolute; inset: -6px -4px; }
   .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 26px; height: 26px; border-radius: 50%; background: var(--text); transition: transform .15s; }
   .switch[aria-checked="true"] { background: var(--on); }
   .switch[aria-checked="true"]::after { transform: translateX(24px); background: #fff; }
@@ -250,6 +252,7 @@
       </button>
     </header>
 
+    <p id="resumeHint" class="resume-hint" role="status" hidden>Audio paused. Tap anywhere to resume.</p>
     <div class="fsrow" aria-hidden="true">
       <span id="flatInd" class="acc-ind flat">♭</span>
       <span id="hzTxt" class="hz ghost">000.0 Hz</span>
@@ -358,11 +361,11 @@
 
   var state = { mode: 'guitar', theme: 'default', a4: 440, locked: null, flats: false, tuning: 'standard', chime: true };
   var v;
-  if ((v = store('mode')) && C.INSTRUMENTS[v]) state.mode = v;
+  if ((v = store('mode')) && Object.prototype.hasOwnProperty.call(C.INSTRUMENTS, v)) state.mode = v;
   if (store('theme') === 'tuna') state.theme = 'tuna';
   if ((v = parseInt(store('a4'), 10)) >= A4_MIN && v <= A4_MAX) state.a4 = v;
   if (store('flats') === '1') state.flats = true;
-  if ((v = store('tuning')) && C.TUNINGS[v]) state.tuning = v;
+  if ((v = store('tuning')) && Object.prototype.hasOwnProperty.call(C.TUNINGS, v)) state.tuning = v;
   if (store('chime') === '0') state.chime = false;
 
   var appEl = $('app');
@@ -397,14 +400,17 @@
     TUNA_IMGS.forEach(function (u) { var i = new Image(); i.onload = i.onerror = function () { if (--left === 0) fin(); }; i.src = u; });
     setTimeout(fin, 1500);   // never leave the switch hanging
   }
+  var themeReq = 0;
   function chooseTheme(name) {
+    var req = ++themeReq;   // only the latest tap wins if two overlap
     if (name === state.theme) return;
-    if (name === 'tuna') preloadTuna(function () { applyTheme('tuna'); });   // art is ready before the swap
+    if (name === 'tuna') preloadTuna(function () { if (req === themeReq) applyTheme('tuna'); });   // art is ready before the swap
     else applyTheme(name);
   }
   function applyTheme(name) {
     state.theme = name;
     if (window.__nkLinks) window.__nkLinks(name === 'tuna');
+    $('start').setAttribute('aria-label', (name === 'tuna' ? 'No Kapu Tuna' : 'No Kapu Tuner') + '. Tap anywhere to start.');
     document.documentElement.setAttribute('data-theme', name);
     document.title = name === 'tuna' ? 'No Kapu Tuna' : 'No Kapu Tuner';
     var an = document.querySelector('meta[name="apple-mobile-web-app-title"]');
@@ -480,7 +486,7 @@
   /* ---------- chromatic ruler ---------- */
   var rulerEl = $('ruler'), rtrack = $('rtrack');
   var rulerItems = [];
-  var lastRulerMidi = 60, rulerCur = -1, rulerTarget = null, rulerUserUntil = 0, rulerTouching = false;
+  var lastRulerMidi = 60, rulerCur = -1, rulerTarget = null, rulerUserUntil = 0;
 
   function buildRuler() {
     rtrack.textContent = '';
@@ -515,9 +521,13 @@
     if (state.mode === 'chromatic' && !showing) paintGhost();
   }
   rulerEl.addEventListener('scroll', markRulerCurrent, { passive: true });
-  ['pointerdown', 'touchstart', 'wheel'].forEach(function (t) {
-    rulerEl.addEventListener(t, function () { rulerUserUntil = performance.now() + USER_HOLD_MS; rulerTarget = null; }, { passive: true });
+  ['pointerdown', 'touchstart'].forEach(function (t) {
+    rulerEl.addEventListener(t, function () { rulerUserUntil = Infinity; rulerTarget = null; }, { passive: true });   // hold while a finger is down
   });
+  ['pointerup', 'pointercancel', 'touchend', 'touchcancel'].forEach(function (t) {
+    rulerEl.addEventListener(t, function () { rulerUserUntil = performance.now() + USER_HOLD_MS; }, { passive: true });
+  });
+  rulerEl.addEventListener('wheel', function () { rulerUserUntil = performance.now() + USER_HOLD_MS; rulerTarget = null; }, { passive: true });
   function setRulerMidi(midi, instant) {
     if (state.mode !== 'chromatic') return;
     midi = Math.max(MIDI_LO, Math.min(MIDI_HI, midi));
@@ -547,7 +557,8 @@
   }
   var uiRaf = 0;
   function uiLoop() {
-    if (state.mode !== 'chromatic') { uiRaf = 0; return; }   // nothing to animate: no per-frame work
+    if (state.mode !== 'chromatic') { uiRaf = 0; return; }
+    if ($('tuner').hidden) { uiRaf = requestAnimationFrame(uiLoop); return; }   // nothing to animate: no per-frame work
     uiRaf = requestAnimationFrame(uiLoop);
     stepRuler();
     rulerPhase(performance.now());
@@ -721,7 +732,7 @@
     flatEl.classList.remove('lit'); sharpEl.classList.remove('lit');
     flatEl.style.color = ''; sharpEl.style.color = '';
     paintStrings(null);
-    statusEl.textContent = ''; sayKey = '';
+    statusEl.textContent = ''; sayKey = ''; chimeArmed = true;
     wasGood = false;
     showing = false;
   }
@@ -809,9 +820,10 @@
 
   function onFrame() {
     var now = performance.now();
+    if ($('tuner').hidden) { lastHeard = now; return; }   // Settings open: no detection or animation work
     if (now < muteUntil) { lastHeard = Math.max(lastHeard, now - 100); return; }
     readSamples();
-    var r = C.detectPitch(buf, ctx.sampleRate, { maxFreq: 4400 });   // B1 .. C8
+    var r = C.detectPitch(buf, ctx.sampleRate, { maxFreq: 4400, minRms: 0.0012 });   // B1 .. C8; low floor so a quiet phone mic still registers
     if (r) {
       var midiF = 69 + 12 * Math.log(r.freq / state.a4) / Math.LN2;
       var list = currentStrings();
@@ -846,6 +858,7 @@
       stream = s;
       return ctx.resume();
     }).then(function () {
+      ctx.onstatechange = function () { paintResume(); if (ctx && ctx.state === 'running') lastHeard = performance.now(); };
       var src = ctx.createMediaStreamSource(stream);
       analyser = ctx.createAnalyser();
       analyser.fftSize = 4096;
@@ -858,6 +871,10 @@
     });
   }
 
+  function paintResume() {
+    var off = !!ctx && ctx.state !== 'running' && !document.hidden;
+    $('resumeHint').hidden = !off;
+  }
   function stopAudio(message) {
     stopLoop();
     cancelAnimationFrame(uiRaf); uiRaf = 0;
@@ -865,6 +882,7 @@
     if (stream) stream.getTracks().forEach(function (t) { t.stop(); });
     if (ctx && ctx.close) ctx.close().catch(function () {});
     stream = null; ctx = null; analyser = null;
+    $('resumeHint').hidden = true;
     resetReadings();
     show('start');
     $('startMsg').textContent = message || '';
@@ -873,7 +891,13 @@
   function friendlyError(err) {
     var name = err && err.name;
     if (name === 'Insecure') return 'This app needs a secure (https) connection to use the microphone.';
-    if (name === 'NotAllowedError' || name === 'SecurityError') return 'Microphone access is blocked. Allow it for this site in your browser settings, then tap again.';
+    if (name === 'NotAllowedError' || name === 'SecurityError') {
+      var ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      if (ios) return navigator.standalone
+        ? 'Microphone access is off. Close the app, open it again and tap Allow when asked. If it never asks, go to Settings > Privacy & Security > Microphone and turn it on.'
+        : 'Microphone access is off. In Settings > Apps > Safari > Microphone choose Ask or Allow, then reload this page and tap again.';
+      return 'Microphone access is blocked. Allow it for this site in your browser settings, then tap again.';
+    }
     if (name === 'NotFoundError' || name === 'OverconstrainedError') return 'No microphone found.';
     return 'Could not start the microphone. Tap to try again.';
   }
@@ -882,7 +906,7 @@
   var wake = null;
   function requestWake() {
     try {
-      if (!('wakeLock' in navigator)) return;
+      if (!('wakeLock' in navigator) || wake) return;
       navigator.wakeLock.request('screen').then(function (lock) {
         wake = lock;
         lock.addEventListener('release', function () { if (wake === lock) wake = null; });
@@ -904,7 +928,8 @@
     if (starting) return;
     starting = true;
     $('startMsg').textContent = '';
-    startAudio().then(function () {
+    var p; try { p = startAudio(); } catch (e) { p = Promise.reject(e); }
+    p.then(function () {
       show('tuner');
       lastHeard = performance.now();
       setMode(state.mode, false);
@@ -913,6 +938,8 @@
       startLoop();
       cancelAnimationFrame(uiRaf); uiRaf = 0; uiLoop();
     }).catch(function (err) {
+      if (stream) stream.getTracks().forEach(function (t) { t.stop(); });
+      stream = null;
       if (ctx && ctx.close) ctx.close().catch(function () {});
       ctx = null;
       $('startMsg').textContent = friendlyError(err);
@@ -950,13 +977,17 @@
 
   document.addEventListener('visibilitychange', function () {
     if (!ctx) return;
-    if (document.hidden) { stopLoop(); releaseWake(); ctx.suspend().catch(function () {}); }
-    else {
-      ctx.resume().catch(function () {}).then(function () { lastHeard = performance.now(); startLoop(); requestWake(); });
+    if (document.hidden) {
+      stopLoop(); releaseWake();
+      if (stream) stream.getAudioTracks().forEach(function (t) { t.enabled = false; });   // mic indicator off while away
+      ctx.suspend().catch(function () {});
+    } else {
+      if (stream) stream.getAudioTracks().forEach(function (t) { t.enabled = true; });
+      ctx.resume().catch(function () {}).then(function () { lastHeard = performance.now(); startLoop(); requestWake(); paintResume(); });
     }
   });
   document.addEventListener('pointerdown', function () {
-    if (ctx && ctx.state === 'suspended' && !document.hidden) ctx.resume().catch(function () {});
+    if (ctx && ctx.state !== 'running' && ctx.state !== 'closed' && !document.hidden) ctx.resume().catch(function () {});
   });
 
   /* ---------- init ---------- */
